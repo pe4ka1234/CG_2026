@@ -4,6 +4,7 @@
 #include <dxgi.h>
 
 
+#pragma comment(lib, "dxguid.lib")
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "dxgi.lib")
 
@@ -26,15 +27,23 @@ private:
     bool CreateBackBufferRTV();
     void ReleaseBackBufferRTV();
 
+    bool CreateTriangleResources();
+    void ReleaseTriangleResources();
+
 private:
     HWND m_hWnd = nullptr;
     UINT m_Width = 1;
     UINT m_Height = 1;
 
-    float m_ClearColor[4] = { 0.60f, 0.80f, 1.00f, 1.0f }; 
+    float m_ClearColor[4] = { 0.60f, 0.80f, 1.00f, 1.0f };
 
     ID3D11Device* m_pDevice = nullptr;
     ID3D11DeviceContext* m_pDeviceContext = nullptr;
     IDXGISwapChain* m_pSwapChain = nullptr;
     ID3D11RenderTargetView* m_pBackBufferRTV = nullptr;
+    ID3D11Buffer* m_pVertexBuffer = nullptr;
+    ID3D11Buffer* m_pIndexBuffer = nullptr;
+    ID3D11VertexShader* m_pVertexShader = nullptr;
+    ID3D11PixelShader* m_pPixelShader = nullptr;
+    ID3D11InputLayout* m_pInputLayout = nullptr;
 };
