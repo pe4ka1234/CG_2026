@@ -52,4 +52,12 @@
       <Filter>Файлы ресурсов</Filter>
     </Image>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="Triangle.vs">
+      <Filter>Исходные файлы</Filter>
+    </None>
+    <None Include="Triangle.ps">
+      <Filter>Исходные файлы</Filter>
+    </None>
+  </ItemGroup>
 </Project>
