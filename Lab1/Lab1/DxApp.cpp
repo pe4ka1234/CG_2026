@@ -4,10 +4,12 @@
 
 #include <d3dcompiler.h>
 #include <d3dcommon.h>
+#include <DirectXMath.h>
 
 #include <string>
 #include <vector>
 #include <fstream>
+#include <cmath>
 
 #pragma comment(lib, "d3dcompiler.lib")
 
@@ -36,7 +38,7 @@ static std::string WCSToMBS(const std::wstring& w)
     WideCharToMultiByte(
         CP_UTF8, 0,
         w.c_str(), (int)w.size(),
-        &result[0], sizeNeeded,   
+        &result[0], sizeNeeded,
         nullptr, nullptr
     );
 
@@ -108,12 +110,69 @@ static HRESULT CompileShaderFromFileMemory(
     return result;
 }
 
+
+
+struct Vertex
+{
+    float x, y, z;
+    COLORREF color;
+};
+
+struct GeomBuffer
+{
+    DirectX::XMFLOAT4X4 m;
+};
+
+struct SceneBuffer
+{
+    DirectX::XMFLOAT4X4 vp;
+};
+
 void DxApp::SetClearColor(float r, float g, float b, float a)
 {
     m_ClearColor[0] = r;
     m_ClearColor[1] = g;
     m_ClearColor[2] = b;
     m_ClearColor[3] = a;
+}
+
+void DxApp::OnMouseDown(int x, int y)
+{
+    m_IsMouseDragging = true;
+    m_LastMouseX = x;
+    m_LastMouseY = y;
+}
+
+void DxApp::OnMouseUp()
+{
+    m_IsMouseDragging = false;
+}
+
+void DxApp::OnMouseMove(int x, int y, WPARAM buttons)
+{
+    if (!m_IsMouseDragging)
+        return;
+
+    if ((buttons & MK_LBUTTON) == 0)
+    {
+        m_IsMouseDragging = false;
+        return;
+    }
+
+    int dx = x - m_LastMouseX;
+    int dy = y - m_LastMouseY;
+
+    m_LastMouseX = x;
+    m_LastMouseY = y;
+
+    const float mouseSensitivity = 0.0032f;
+
+    m_CameraYaw += dx * mouseSensitivity;
+    m_CameraPitch += dy * mouseSensitivity;
+
+    const float pitchLimit = 1.35f;
+    if (m_CameraPitch > pitchLimit) m_CameraPitch = pitchLimit;
+    if (m_CameraPitch < -pitchLimit) m_CameraPitch = -pitchLimit;
 }
 
 bool DxApp::Init(HWND hWnd, UINT width, UINT height)
@@ -289,16 +348,38 @@ bool DxApp::CreateTriangleResources()
 {
     if (!m_pDevice) return false;
 
-    struct Vertex
-    {
-        float x, y, z;
-        COLORREF color;
-    };
 
-    static const Vertex Vertices[] = {
-        {-0.5f, -0.5f, 0.0f, RGB(255, 0, 0)},
-        { 0.5f, -0.5f, 0.0f, RGB(0, 255, 0)},
-        { 0.0f,  0.5f, 0.0f, RGB(0, 0, 255)}
+    static const Vertex Vertices[] =
+    {
+        { -0.5f, -0.5f,  0.5f, RGB(255, 120, 120) },
+        {  0.5f, -0.5f,  0.5f, RGB(255, 120, 120) },
+        {  0.5f,  0.5f,  0.5f, RGB(255, 120, 120) },
+        { -0.5f,  0.5f,  0.5f, RGB(255, 120, 120) },
+
+        {  0.5f, -0.5f, -0.5f, RGB(120, 255, 120) },
+        { -0.5f, -0.5f, -0.5f, RGB(120, 255, 120) },
+        { -0.5f,  0.5f, -0.5f, RGB(120, 255, 120) },
+        {  0.5f,  0.5f, -0.5f, RGB(120, 255, 120) },
+
+        { -0.5f, -0.5f, -0.5f, RGB(120, 120, 255) },
+        { -0.5f, -0.5f,  0.5f, RGB(120, 120, 255) },
+        { -0.5f,  0.5f,  0.5f, RGB(120, 120, 255) },
+        { -0.5f,  0.5f, -0.5f, RGB(120, 120, 255) }, 
+
+        {  0.5f, -0.5f,  0.5f, RGB(255, 240, 120) },
+        {  0.5f, -0.5f, -0.5f, RGB(255, 240, 120) },
+        {  0.5f,  0.5f, -0.5f, RGB(255, 240, 120) },
+        {  0.5f,  0.5f,  0.5f, RGB(255, 240, 120) },
+
+        { -0.5f,  0.5f,  0.5f, RGB(255, 160, 255) },
+        {  0.5f,  0.5f,  0.5f, RGB(255, 160, 255) },
+        {  0.5f,  0.5f, -0.5f, RGB(255, 160, 255) },
+        { -0.5f,  0.5f, -0.5f, RGB(255, 160, 255) },
+
+        { -0.5f, -0.5f, -0.5f, RGB(120, 255, 255) },
+        {  0.5f, -0.5f, -0.5f, RGB(120, 255, 255) },
+        {  0.5f, -0.5f,  0.5f, RGB(120, 255, 255) },
+        { -0.5f, -0.5f,  0.5f, RGB(120, 255, 255) },
     };
 
     {
@@ -310,8 +391,8 @@ bool DxApp::CreateTriangleResources()
         desc.MiscFlags = 0;
         desc.StructureByteStride = 0;
 
-        D3D11_SUBRESOURCE_DATA data;
-        data.pSysMem = &Vertices;
+        D3D11_SUBRESOURCE_DATA data{};
+        data.pSysMem = Vertices;
         data.SysMemPitch = sizeof(Vertices);
         data.SysMemSlicePitch = 0;
 
@@ -320,7 +401,16 @@ bool DxApp::CreateTriangleResources()
         SetResourceName(m_pVertexBuffer, "VertexBuffer");
     }
 
-    static const USHORT Indices[] = { 0, 2, 1 };
+    static const USHORT Indices[] =
+    {
+        0, 1, 2,  0, 2, 3,
+        4, 5, 6,  4, 6, 7,
+        8, 9,10,  8,10,11,
+        12,13,14, 12,14,15,
+        16,17,18, 16,18,19,
+        20,21,22, 20,22,23
+    };
+    m_IndexCount = (UINT)(sizeof(Indices) / sizeof(Indices[0]));
 
     {
         D3D11_BUFFER_DESC desc = {};
@@ -331,8 +421,8 @@ bool DxApp::CreateTriangleResources()
         desc.MiscFlags = 0;
         desc.StructureByteStride = 0;
 
-        D3D11_SUBRESOURCE_DATA data;
-        data.pSysMem = &Indices;
+        D3D11_SUBRESOURCE_DATA data{};
+        data.pSysMem = Indices;
         data.SysMemPitch = sizeof(Indices);
         data.SysMemSlicePitch = 0;
 
@@ -341,6 +431,33 @@ bool DxApp::CreateTriangleResources()
         SetResourceName(m_pIndexBuffer, "IndexBuffer");
     }
 
+    {
+        D3D11_BUFFER_DESC desc = {};
+        desc.ByteWidth = sizeof(GeomBuffer);
+        desc.Usage = D3D11_USAGE_DEFAULT;
+        desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+        desc.CPUAccessFlags = 0;
+        desc.MiscFlags = 0;
+        desc.StructureByteStride = 0;
+
+        HRESULT result = m_pDevice->CreateBuffer(&desc, nullptr, &m_pGeomBuffer);
+        if (FAILED(result) || !m_pGeomBuffer) return false;
+        SetResourceName(m_pGeomBuffer, "GeomBuffer");
+    }
+
+    {
+        D3D11_BUFFER_DESC desc = {};
+        desc.ByteWidth = sizeof(SceneBuffer);
+        desc.Usage = D3D11_USAGE_DYNAMIC;
+        desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+        desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+        desc.MiscFlags = 0;
+        desc.StructureByteStride = 0;
+
+        HRESULT result = m_pDevice->CreateBuffer(&desc, nullptr, &m_pSceneBuffer);
+        if (FAILED(result) || !m_pSceneBuffer) return false;
+        SetResourceName(m_pSceneBuffer, "SceneBuffer");
+    }
 
     ID3DBlob* pVSCode = nullptr;
     HRESULT result = CompileShaderFromFileMemory(L"Triangle.vs", "vs", "vs_5_0", &pVSCode);
@@ -408,19 +525,23 @@ bool DxApp::CreateTriangleResources()
 
 void DxApp::ReleaseTriangleResources()
 {
+    SAFE_RELEASE(m_pSceneBuffer);
+    SAFE_RELEASE(m_pGeomBuffer);
     SAFE_RELEASE(m_pInputLayout);
     SAFE_RELEASE(m_pPixelShader);
     SAFE_RELEASE(m_pVertexShader);
     SAFE_RELEASE(m_pIndexBuffer);
     SAFE_RELEASE(m_pVertexBuffer);
+
+    m_IndexCount = 0;
 }
 
 void DxApp::Render()
 {
     if (!m_pDeviceContext || !m_pBackBufferRTV || !m_pSwapChain) return;
 
-   
-    if (!m_pVertexBuffer || !m_pIndexBuffer || !m_pVertexShader || !m_pPixelShader || !m_pInputLayout)
+
+    if (!m_pVertexBuffer || !m_pIndexBuffer || !m_pVertexShader || !m_pPixelShader || !m_pInputLayout || !m_pGeomBuffer || !m_pSceneBuffer)
     {
         ID3D11RenderTargetView* views[] = { m_pBackBufferRTV };
         m_pDeviceContext->ClearState();
@@ -431,14 +552,52 @@ void DxApp::Render()
         return;
     }
 
-  
+    constexpr float PI = 3.14159265358979323846f;
+
+    DirectX::XMMATRIX m = DirectX::XMMatrixIdentity();
+
+    DirectX::XMMATRIX cameraRotation = DirectX::XMMatrixRotationRollPitchYaw(m_CameraPitch, m_CameraYaw, 0.0f);
+
+    DirectX::XMMATRIX cameraTransform = DirectX::XMMatrixMultiply(
+        DirectX::XMMatrixTranslation(0.0f, 0.0f, -3.0f),
+        cameraRotation
+    );
+
+    DirectX::XMMATRIX v = DirectX::XMMatrixInverse(nullptr, cameraTransform);
+
+    float f = 100.0f;
+    float n = 0.1f;
+    float fov = PI / 3.0f;
+    float aspectRatio = (float)m_Height / (float)m_Width;
+
+    DirectX::XMMATRIX p = DirectX::XMMatrixPerspectiveLH(
+        tanf(fov / 2) * 2 * n,
+        tanf(fov / 2) * 2 * n * aspectRatio,
+        n,
+        f
+    );
+
+    GeomBuffer geomBuffer{};
+    DirectX::XMStoreFloat4x4(&geomBuffer.m, m);
+    m_pDeviceContext->UpdateSubresource(m_pGeomBuffer, 0, nullptr, &geomBuffer, 0, 0);
+
+    D3D11_MAPPED_SUBRESOURCE subresource{};
+    HRESULT mapResult = m_pDeviceContext->Map(m_pSceneBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &subresource);
+    assert(SUCCEEDED(mapResult));
+    if (SUCCEEDED(mapResult))
+    {
+        SceneBuffer* sceneBuffer = reinterpret_cast<SceneBuffer*>(subresource.pData);
+        DirectX::XMStoreFloat4x4(&sceneBuffer->vp, DirectX::XMMatrixMultiply(v, p));
+        m_pDeviceContext->Unmap(m_pSceneBuffer, 0);
+    }
+
     m_pDeviceContext->ClearState();
 
     ID3D11RenderTargetView* views[] = { m_pBackBufferRTV };
     m_pDeviceContext->OMSetRenderTargets(1, views, nullptr);
     m_pDeviceContext->ClearRenderTargetView(m_pBackBufferRTV, m_ClearColor);
 
-    D3D11_VIEWPORT viewport;
+    D3D11_VIEWPORT viewport{};
     viewport.TopLeftX = 0;
     viewport.TopLeftY = 0;
     viewport.Width = (FLOAT)m_Width;
@@ -447,7 +606,7 @@ void DxApp::Render()
     viewport.MaxDepth = 1.0f;
     m_pDeviceContext->RSSetViewports(1, &viewport);
 
-    D3D11_RECT rect;
+    D3D11_RECT rect{};
     rect.left = 0;
     rect.top = 0;
     rect.right = (LONG)m_Width;
@@ -457,7 +616,7 @@ void DxApp::Render()
     m_pDeviceContext->IASetIndexBuffer(m_pIndexBuffer, DXGI_FORMAT_R16_UINT, 0);
 
     ID3D11Buffer* vertexBuffers[] = { m_pVertexBuffer };
-    UINT strides[] = { 16 };
+    UINT strides[] = { sizeof(Vertex) };
     UINT offsets[] = { 0 };
     m_pDeviceContext->IASetVertexBuffers(0, 1, vertexBuffers, strides, offsets);
 
@@ -467,7 +626,10 @@ void DxApp::Render()
     m_pDeviceContext->VSSetShader(m_pVertexShader, nullptr, 0);
     m_pDeviceContext->PSSetShader(m_pPixelShader, nullptr, 0);
 
-    m_pDeviceContext->DrawIndexed(3, 0, 0);
+    ID3D11Buffer* vsConstantBuffers[] = { m_pGeomBuffer, m_pSceneBuffer };
+    m_pDeviceContext->VSSetConstantBuffers(0, 2, vsConstantBuffers);
+
+    m_pDeviceContext->DrawIndexed(m_IndexCount, 0, 0);
 
     HRESULT hr = m_pSwapChain->Present(0, 0);
     assert(SUCCEEDED(hr));
