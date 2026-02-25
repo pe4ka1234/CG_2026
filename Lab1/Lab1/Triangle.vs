@@ -1,3 +1,13 @@
+cbuffer GeomBuffer : register (b0)
+{
+    float4x4 m;
+};
+
+cbuffer SceneBuffer : register (b1)
+{
+    float4x4 vp;
+};
+
 struct VSInput
 {
     float3 pos : POSITION;
@@ -14,7 +24,7 @@ VSOutput vs(VSInput vertex)
 {
     VSOutput result;
 
-    result.pos = float4(vertex.pos, 1.0);
+    result.pos = mul(vp, mul(m, float4(vertex.pos, 1.0)));
     result.color = vertex.color;
 
     return result;

@@ -23,6 +23,10 @@ public:
 
     void SetClearColor(float r, float g, float b, float a = 1.0f);
 
+    void OnMouseDown(int x, int y);
+    void OnMouseUp();
+    void OnMouseMove(int x, int y, WPARAM buttons);
+
 private:
     bool CreateBackBufferRTV();
     void ReleaseBackBufferRTV();
@@ -46,4 +50,16 @@ private:
     ID3D11VertexShader* m_pVertexShader = nullptr;
     ID3D11PixelShader* m_pPixelShader = nullptr;
     ID3D11InputLayout* m_pInputLayout = nullptr;
+
+    ID3D11Buffer* m_pGeomBuffer = nullptr;  
+    ID3D11Buffer* m_pSceneBuffer = nullptr;  
+
+    UINT m_IndexCount = 0;
+
+    float m_CameraYaw = 0.0f;
+    float m_CameraPitch = 0.0f;
+
+    bool m_IsMouseDragging = false;
+    int m_LastMouseX = 0;
+    int m_LastMouseY = 0;
 };

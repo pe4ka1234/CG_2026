@@ -4,6 +4,7 @@
 #include "framework.h"
 #include "Lab1.h"
 #include "DxApp.h"
+#include <windowsx.h> 
 
 #define MAX_LOADSTRING 100
 
@@ -128,8 +129,28 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         g_minimized = false;
 
         g_dx.OnResize(LOWORD(lParam), HIWORD(lParam));
-
         g_dx.Render();
+        return 0;
+
+    case WM_LBUTTONDOWN:
+        SetCapture(hWnd);
+        g_dx.OnMouseDown(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+        return 0;
+
+    case WM_MOUSEMOVE:
+        g_dx.OnMouseMove(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam), wParam);
+        return 0;
+
+    case WM_LBUTTONUP:
+        if (GetCapture() == hWnd)
+            ReleaseCapture();
+        g_dx.OnMouseUp();
+        return 0;
+
+    case WM_KILLFOCUS:
+        if (GetCapture() == hWnd)
+            ReleaseCapture();
+        g_dx.OnMouseUp();
         return 0;
 
     case WM_COMMAND:
