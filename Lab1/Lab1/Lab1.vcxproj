@@ -110,7 +110,15 @@
     <PostBuildEvent>
       <Command>copy /Y "$(ProjectDir)Triangle.vs" "$(OutDir)"
 copy /Y "$(ProjectDir)Triangle.ps" "$(OutDir)"
-</Command>
+copy /Y "$(ProjectDir)Skybox.vs" "$(OutDir)"
+copy /Y "$(ProjectDir)Skybox.ps" "$(OutDir)"
+if exist "$(ProjectDir)Cube.dds" copy /Y "$(ProjectDir)Cube.dds" "$(OutDir)"
+if exist "$(ProjectDir)posx.dds" copy /Y "$(ProjectDir)posx.dds" "$(OutDir)"
+if exist "$(ProjectDir)negx.dds" copy /Y "$(ProjectDir)negx.dds" "$(OutDir)"
+if exist "$(ProjectDir)posy.dds" copy /Y "$(ProjectDir)posy.dds" "$(OutDir)"
+if exist "$(ProjectDir)negy.dds" copy /Y "$(ProjectDir)negy.dds" "$(OutDir)"
+if exist "$(ProjectDir)posz.dds" copy /Y "$(ProjectDir)posz.dds" "$(OutDir)"
+if exist "$(ProjectDir)negz.dds" copy /Y "$(ProjectDir)negz.dds" "$(OutDir)"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -129,19 +137,45 @@ copy /Y "$(ProjectDir)Triangle.ps" "$(OutDir)"
     <PostBuildEvent>
       <Command>copy /Y "$(ProjectDir)Triangle.vs" "$(OutDir)"
 copy /Y "$(ProjectDir)Triangle.ps" "$(OutDir)"
-</Command>
+copy /Y "$(ProjectDir)Skybox.vs" "$(OutDir)"
+copy /Y "$(ProjectDir)Skybox.ps" "$(OutDir)"
+if exist "$(ProjectDir)Cube.dds" copy /Y "$(ProjectDir)Cube.dds" "$(OutDir)"
+if exist "$(ProjectDir)posx.dds" copy /Y "$(ProjectDir)posx.dds" "$(OutDir)"
+if exist "$(ProjectDir)negx.dds" copy /Y "$(ProjectDir)negx.dds" "$(OutDir)"
+if exist "$(ProjectDir)posy.dds" copy /Y "$(ProjectDir)posy.dds" "$(OutDir)"
+if exist "$(ProjectDir)negy.dds" copy /Y "$(ProjectDir)negy.dds" "$(OutDir)"
+if exist "$(ProjectDir)posz.dds" copy /Y "$(ProjectDir)posz.dds" "$(OutDir)"
+if exist "$(ProjectDir)negz.dds" copy /Y "$(ProjectDir)negz.dds" "$(OutDir)"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="CubeObject.h" />
+    <ClInclude Include="DdsLoader.h" />
+    <ClInclude Include="DeviceResources.h" />
     <ClInclude Include="DxApp.h" />
+    <ClInclude Include="DxCommon.h" />
+    <ClInclude Include="DxRenderer.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="Lab1.h" />
+    <ClInclude Include="MeshUtils.h" />
+    <ClInclude Include="RenderTypes.h" />
     <ClInclude Include="Resource.h" />
+    <ClInclude Include="SceneResources.h" />
+    <ClInclude Include="ShaderUtils.h" />
+    <ClInclude Include="SkyboxObject.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="CubeObject.cpp" />
+    <ClCompile Include="DdsLoader.cpp" />
+    <ClCompile Include="DeviceResources.cpp" />
     <ClCompile Include="DxApp.cpp" />
+    <ClCompile Include="DxRenderer.cpp" />
     <ClCompile Include="Lab1.cpp" />
+    <ClCompile Include="MeshUtils.cpp" />
+    <ClCompile Include="SceneResources.cpp" />
+    <ClCompile Include="ShaderUtils.cpp" />
+    <ClCompile Include="SkyboxObject.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Lab1.rc" />
@@ -151,6 +185,8 @@ copy /Y "$(ProjectDir)Triangle.ps" "$(OutDir)"
     <Image Include="small.ico" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="Skybox.ps" />
+    <None Include="Skybox.vs" />
     <None Include="Triangle.ps" />
     <None Include="Triangle.vs" />
   </ItemGroup>
