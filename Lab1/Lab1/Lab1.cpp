@@ -4,7 +4,7 @@
 #include "framework.h"
 #include "Lab1.h"
 #include "DxApp.h"
-#include <windowsx.h> 
+#include <windowsx.h>
 
 #define MAX_LOADSTRING 100
 
@@ -62,7 +62,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     }
 
     g_dx.Shutdown();
-    return (int)msg.wParam;
+    return static_cast<int>(msg.wParam);
 }
 
 ATOM MyRegisterClass(HINSTANCE hInstance)
@@ -77,9 +77,7 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     wcex.hInstance = hInstance;
     wcex.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_LAB1));
     wcex.hCursor = LoadCursor(nullptr, IDC_ARROW);
-
-    wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW+1);
-
+    wcex.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1);
     wcex.lpszMenuName = MAKEINTRESOURCEW(IDC_LAB1);
     wcex.lpszClassName = szWindowClass;
     wcex.hIconSm = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_SMALL));
@@ -91,19 +89,29 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
     hInst = hInstance;
 
-    HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
-        CW_USEDEFAULT, 0, CW_USEDEFAULT, 0,
-        nullptr, nullptr, hInstance, nullptr);
+    constexpr LONG kClientWidth = 1280;
+    constexpr LONG kClientHeight = 720;
+
+    RECT rc{ 0, 0, kClientWidth, kClientHeight };
+    AdjustWindowRect(&rc, WS_OVERLAPPEDWINDOW, TRUE);
+
+    HWND hWnd = CreateWindowW(
+        szWindowClass,
+        szTitle,
+        WS_OVERLAPPEDWINDOW,
+        CW_USEDEFAULT,
+        CW_USEDEFAULT,
+        rc.right - rc.left,
+        rc.bottom - rc.top,
+        nullptr,
+        nullptr,
+        hInstance,
+        nullptr);
 
     if (!hWnd)
         return FALSE;
 
-    RECT rc{};
-    GetClientRect(hWnd, &rc);
-    UINT w = (UINT)(rc.right - rc.left);
-    UINT h = (UINT)(rc.bottom - rc.top);
-
-    if (!g_dx.Init(hWnd, w, h))
+    if (!g_dx.Init(hWnd, static_cast<UINT>(kClientWidth), static_cast<UINT>(kClientHeight)))
         return FALSE;
 
     ShowWindow(hWnd, nCmdShow);
@@ -127,7 +135,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
 
         g_minimized = false;
-
         g_dx.OnResize(LOWORD(lParam), HIWORD(lParam));
         g_dx.Render();
         return 0;
@@ -155,7 +162,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
     case WM_COMMAND:
     {
-        int wmId = LOWORD(wParam);
+        const int wmId = LOWORD(wParam);
         switch (wmId)
         {
         case IDM_ABOUT:
@@ -168,7 +175,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             return DefWindowProc(hWnd, message, wParam, lParam);
         }
     }
-    break;
+    return 0;
+
     case WM_PAINT:
     {
         PAINTSTRUCT ps;
@@ -188,18 +196,20 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
     UNREFERENCED_PARAMETER(lParam);
+
     switch (message)
     {
     case WM_INITDIALOG:
-        return (INT_PTR)TRUE;
+        return static_cast<INT_PTR>(TRUE);
 
     case WM_COMMAND:
         if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
         {
             EndDialog(hDlg, LOWORD(wParam));
-            return (INT_PTR)TRUE;
+            return static_cast<INT_PTR>(TRUE);
         }
         break;
     }
-    return (INT_PTR)FALSE;
+
+    return static_cast<INT_PTR>(FALSE);
 }

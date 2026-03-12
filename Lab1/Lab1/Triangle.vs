@@ -1,31 +1,31 @@
-cbuffer GeomBuffer : register (b0)
+cbuffer GeomBuffer : register(b0)
 {
-    float4x4 m;
+    float4x4 model;
+    float4 size;
 };
 
-cbuffer SceneBuffer : register (b1)
+cbuffer SceneBuffer : register(b1)
 {
     float4x4 vp;
+    float4 cameraPos;
 };
 
 struct VSInput
 {
     float3 pos : POSITION;
-    float4 color : COLOR;
+    float2 uv  : TEXCOORD;
 };
 
 struct VSOutput
 {
     float4 pos : SV_Position;
-    float4 color : COLOR;
+    float2 uv  : TEXCOORD;
 };
 
 VSOutput vs(VSInput vertex)
 {
     VSOutput result;
-
-    result.pos = mul(vp, mul(m, float4(vertex.pos, 1.0)));
-    result.color = vertex.color;
-
+    result.pos = mul(vp, mul(model, float4(vertex.pos, 1.0f)));
+    result.uv = vertex.uv;
     return result;
 }
