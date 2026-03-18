@@ -276,7 +276,6 @@ void CubeObject::Render(
     pDeviceContext->PSSetShaderResources(0, 1, resources);
 
     pDeviceContext->RSSetState(nullptr);
-    pDeviceContext->OMSetDepthStencilState(nullptr, 0);
 
     pDeviceContext->DrawIndexed(m_Geometry.indexCount, 0, 0);
 }

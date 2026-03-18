@@ -6,6 +6,7 @@
 #include "DeviceResources.h"
 #include "SceneResources.h"
 #include "SkyboxObject.h"
+#include "TransparentQuadObject.h"
 
 class DxRenderer
 {
@@ -20,10 +21,19 @@ public:
     void RotateCamera(float deltaYaw, float deltaPitch);
 
 private:
+    bool CreateStates();
+    void ReleaseStates();
+
+private:
     float m_ClearColor[4] = { 0.60f, 0.80f, 1.00f, 1.0f };
 
     DeviceResources m_DeviceResources;
     SceneResources m_SceneResources;
     CubeObject m_CubeObject;
     SkyboxObject m_SkyboxObject;
+    TransparentQuadObject m_TransparentQuadObject;
+
+    ID3D11DepthStencilState* m_pOpaqueDepthState = nullptr;
+    ID3D11DepthStencilState* m_pTransparentDepthState = nullptr;
+    ID3D11BlendState* m_pTransparentBlendState = nullptr;
 };

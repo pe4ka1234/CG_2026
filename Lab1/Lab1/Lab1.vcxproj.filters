@@ -60,6 +60,9 @@
     <ClInclude Include="SkyboxObject.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
+    <ClInclude Include="TransparentQuadObject.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Lab1.cpp">
@@ -92,6 +95,9 @@
     <ClCompile Include="SkyboxObject.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
+    <ClCompile Include="TransparentQuadObject.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Lab1.rc">
@@ -117,6 +123,9 @@
       <Filter>Исходные файлы</Filter>
     </None>
     <None Include="Skybox.ps">
+      <Filter>Исходные файлы</Filter>
+    </None>
+    <None Include="Transparent.ps">
       <Filter>Исходные файлы</Filter>
     </None>
   </ItemGroup>

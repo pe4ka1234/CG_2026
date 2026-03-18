@@ -2,6 +2,7 @@ cbuffer GeomBuffer : register(b0)
 {
     float4x4 model;
     float4 size;
+    float4 color;
 };
 
 cbuffer SceneBuffer : register(b1)

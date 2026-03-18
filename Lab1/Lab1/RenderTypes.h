@@ -17,6 +17,7 @@ struct GeomBuffer
 {
     DirectX::XMFLOAT4X4 model;
     DirectX::XMFLOAT4 size;
+    DirectX::XMFLOAT4 color;
 };
 
 struct SceneBuffer
