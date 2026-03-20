@@ -80,21 +80,24 @@ bool SceneResources::UpdateSceneBuffer(ID3D11DeviceContext* pDeviceContext, UINT
     const float n = 0.1f;
     const float fov = PI / 3.0f;
     const float aspectRatio = static_cast<float>(height) / static_cast<float>(width);
-    const float nearWidth = tanf(fov / 2.0f) * 2.0f * n;
-    const float nearHeight = nearWidth * aspectRatio;
+
+    const float farWidth = tanf(fov / 2.0f) * 2.0f * f;
+    const float farHeight = farWidth * aspectRatio;
 
     const DirectX::XMMATRIX proj = DirectX::XMMatrixPerspectiveLH(
-        nearWidth,
-        nearHeight,
-        n,
-        f);
+        farWidth,
+        farHeight,
+        f,
+        n);
+
+    const float nearWidth = tanf(fov / 2.0f) * 2.0f * n;
+    const float nearHeight = nearWidth * aspectRatio;
 
     const DirectX::XMVECTOR cameraPosVec = DirectX::XMVector3TransformCoord(
         DirectX::XMVectorZero(),
         cameraTransform);
 
-    DirectX::XMFLOAT3 cameraPos{};
-    DirectX::XMStoreFloat3(&cameraPos, cameraPosVec);
+    DirectX::XMStoreFloat3(&m_CameraPosition, cameraPosVec);
 
     D3D11_MAPPED_SUBRESOURCE subresource{};
     const HRESULT hr = pDeviceContext->Map(
@@ -110,7 +113,12 @@ bool SceneResources::UpdateSceneBuffer(ID3D11DeviceContext* pDeviceContext, UINT
 
     SceneBuffer& sceneBuffer = *reinterpret_cast<SceneBuffer*>(subresource.pData);
     DirectX::XMStoreFloat4x4(&sceneBuffer.vp, DirectX::XMMatrixMultiply(view, proj));
-    sceneBuffer.cameraPos = DirectX::XMFLOAT4(cameraPos.x, cameraPos.y, cameraPos.z, 1.0f);
+    sceneBuffer.cameraPos = DirectX::XMFLOAT4(
+        m_CameraPosition.x,
+        m_CameraPosition.y,
+        m_CameraPosition.z,
+        1.0f);
+
     pDeviceContext->Unmap(m_pSceneBuffer, 0);
 
     m_SkyRadius = sqrtf(
@@ -124,7 +132,8 @@ bool SceneResources::UpdateSceneBuffer(ID3D11DeviceContext* pDeviceContext, UINT
 void SceneResources::UpdateGeomBuffer(
     ID3D11DeviceContext* pDeviceContext,
     const DirectX::XMMATRIX& model,
-    const DirectX::XMFLOAT4& size)
+    const DirectX::XMFLOAT4& size,
+    const DirectX::XMFLOAT4& color)
 {
     if (!m_pGeomBuffer || !pDeviceContext)
         return;
@@ -132,6 +141,7 @@ void SceneResources::UpdateGeomBuffer(
     GeomBuffer geomBuffer{};
     DirectX::XMStoreFloat4x4(&geomBuffer.model, model);
     geomBuffer.size = size;
+    geomBuffer.color = color;
     pDeviceContext->UpdateSubresource(m_pGeomBuffer, 0, nullptr, &geomBuffer, 0, 0);
 }
 
@@ -148,6 +158,11 @@ ID3D11Buffer* SceneResources::GetGeomBuffer() const
 float SceneResources::GetSkyRadius() const
 {
     return m_SkyRadius;
+}
+
+DirectX::XMFLOAT3 SceneResources::GetCameraPosition() const
+{
+    return m_CameraPosition;
 }
 
 void SceneResources::Shutdown()

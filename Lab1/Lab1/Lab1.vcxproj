@@ -112,6 +112,7 @@
 copy /Y "$(ProjectDir)Triangle.ps" "$(OutDir)"
 copy /Y "$(ProjectDir)Skybox.vs" "$(OutDir)"
 copy /Y "$(ProjectDir)Skybox.ps" "$(OutDir)"
+copy /Y "$(ProjectDir)Transparent.ps" "$(OutDir)"
 if exist "$(ProjectDir)Cube.dds" copy /Y "$(ProjectDir)Cube.dds" "$(OutDir)"
 if exist "$(ProjectDir)posx.dds" copy /Y "$(ProjectDir)posx.dds" "$(OutDir)"
 if exist "$(ProjectDir)negx.dds" copy /Y "$(ProjectDir)negx.dds" "$(OutDir)"
@@ -139,6 +140,7 @@ if exist "$(ProjectDir)negz.dds" copy /Y "$(ProjectDir)negz.dds" "$(OutDir)"</Co
 copy /Y "$(ProjectDir)Triangle.ps" "$(OutDir)"
 copy /Y "$(ProjectDir)Skybox.vs" "$(OutDir)"
 copy /Y "$(ProjectDir)Skybox.ps" "$(OutDir)"
+copy /Y "$(ProjectDir)Transparent.ps" "$(OutDir)"
 if exist "$(ProjectDir)Cube.dds" copy /Y "$(ProjectDir)Cube.dds" "$(OutDir)"
 if exist "$(ProjectDir)posx.dds" copy /Y "$(ProjectDir)posx.dds" "$(OutDir)"
 if exist "$(ProjectDir)negx.dds" copy /Y "$(ProjectDir)negx.dds" "$(OutDir)"
@@ -164,6 +166,7 @@ if exist "$(ProjectDir)negz.dds" copy /Y "$(ProjectDir)negz.dds" "$(OutDir)"</Co
     <ClInclude Include="ShaderUtils.h" />
     <ClInclude Include="SkyboxObject.h" />
     <ClInclude Include="targetver.h" />
+    <ClInclude Include="TransparentQuadObject.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="CubeObject.cpp" />
@@ -176,6 +179,7 @@ if exist "$(ProjectDir)negz.dds" copy /Y "$(ProjectDir)negz.dds" "$(OutDir)"</Co
     <ClCompile Include="SceneResources.cpp" />
     <ClCompile Include="ShaderUtils.cpp" />
     <ClCompile Include="SkyboxObject.cpp" />
+    <ClCompile Include="TransparentQuadObject.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Lab1.rc" />
@@ -187,6 +191,7 @@ if exist "$(ProjectDir)negz.dds" copy /Y "$(ProjectDir)negz.dds" "$(OutDir)"</Co
   <ItemGroup>
     <None Include="Skybox.ps" />
     <None Include="Skybox.vs" />
+    <None Include="Transparent.ps" />
     <None Include="Triangle.ps" />
     <None Include="Triangle.vs" />
   </ItemGroup>

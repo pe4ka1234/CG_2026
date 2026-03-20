@@ -149,7 +149,7 @@ bool DeviceResources::CreateDepthBuffer()
     desc.Height = m_Height;
     desc.MipLevels = 1;
     desc.ArraySize = 1;
-    desc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+    desc.Format = DXGI_FORMAT_D32_FLOAT;
     desc.SampleDesc.Count = 1;
     desc.SampleDesc.Quality = 0;
     desc.Usage = D3D11_USAGE_DEFAULT;
@@ -221,8 +221,8 @@ void DeviceResources::BeginFrame(const float clearColor[4])
     m_pDeviceContext->ClearRenderTargetView(m_pBackBufferRTV, clearColor);
     m_pDeviceContext->ClearDepthStencilView(
         m_pDepthStencilView,
-        D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL,
-        1.0f,
+        D3D11_CLEAR_DEPTH,
+        0.0f,
         0);
 
     D3D11_VIEWPORT viewport{};

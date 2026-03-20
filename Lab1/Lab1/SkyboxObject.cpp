@@ -142,7 +142,6 @@ bool SkyboxObject::CreateCubemap(ID3D11Device* pDevice)
             return false;
     }
 
-    // Все 6 граней должны совпадать по формату, размеру и числу mip-уровней
     for (int i = 1; i < 6; ++i)
     {
         if (texDescs[i].fmt != texDescs[0].fmt ||
@@ -256,9 +255,9 @@ bool SkyboxObject::CreateState(ID3D11Device* pDevice)
 
     {
         D3D11_DEPTH_STENCIL_DESC desc{};
-        desc.DepthEnable = FALSE;
+        desc.DepthEnable = TRUE;
         desc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
-        desc.DepthFunc = D3D11_COMPARISON_ALWAYS;
+        desc.DepthFunc = D3D11_COMPARISON_GREATER_EQUAL;
         desc.StencilEnable = FALSE;
 
         const HRESULT hr = pDevice->CreateDepthStencilState(&desc, &m_State.pDepthState);
