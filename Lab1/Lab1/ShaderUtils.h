@@ -12,4 +12,5 @@ HRESULT CompileShaderFromFileMemory(
     const std::wstring& path,
     const std::string& entryPoint,
     const std::string& platform,
-    ID3DBlob** ppCode);
+    ID3DBlob** ppCode,
+    const std::vector<std::string>* pDefines = nullptr);

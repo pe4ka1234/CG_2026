@@ -4,47 +4,113 @@
 #include "DdsLoader.h"
 #include "ShaderUtils.h"
 
+namespace
+{
+    bool CreateTextureFromDDS(
+        ID3D11Device* pDevice,
+        const wchar_t* path,
+        const char* textureDebugName,
+        const char* srvDebugName,
+        ID3D11Texture2D** ppTexture,
+        ID3D11ShaderResourceView** ppTextureView)
+    {
+        if (!pDevice || !ppTexture || !ppTextureView)
+            return false;
+
+        *ppTexture = nullptr;
+        *ppTextureView = nullptr;
+
+        TextureDesc textureDesc;
+        if (!LoadDDS(path, textureDesc))
+            return false;
+
+        D3D11_TEXTURE2D_DESC desc{};
+        desc.Format = textureDesc.fmt;
+        desc.ArraySize = 1;
+        desc.MipLevels = textureDesc.mipmapsCount;
+        desc.Usage = D3D11_USAGE_IMMUTABLE;
+        desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+        desc.CPUAccessFlags = 0;
+        desc.MiscFlags = 0;
+        desc.SampleDesc.Count = 1;
+        desc.SampleDesc.Quality = 0;
+        desc.Width = textureDesc.width;
+        desc.Height = textureDesc.height;
+
+        std::vector<D3D11_SUBRESOURCE_DATA> subresources;
+        FillTextureSubresourceData(
+            textureDesc.fmt,
+            textureDesc.width,
+            textureDesc.height,
+            textureDesc.mipmapsCount,
+            textureDesc.data.data(),
+            subresources);
+
+        HRESULT hr = pDevice->CreateTexture2D(&desc, subresources.data(), ppTexture);
+        if (FAILED(hr) || !*ppTexture)
+            return false;
+
+        SetResourceName(*ppTexture, textureDebugName);
+
+        D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc{};
+        srvDesc.Format = textureDesc.fmt;
+        srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+        srvDesc.Texture2D.MipLevels = textureDesc.mipmapsCount;
+        srvDesc.Texture2D.MostDetailedMip = 0;
+
+        hr = pDevice->CreateShaderResourceView(*ppTexture, &srvDesc, ppTextureView);
+        if (FAILED(hr) || !*ppTextureView)
+        {
+            SAFE_RELEASE(*ppTexture);
+            return false;
+        }
+
+        SetResourceName(*ppTextureView, srvDebugName);
+        return true;
+    }
+}
+
 bool CubeObject::Init(ID3D11Device* pDevice)
 {
     return CreateGeometry(pDevice) &&
         CreateShaders(pDevice) &&
-        CreateTexture(pDevice) &&
+        CreateTextures(pDevice) &&
         CreateSampler(pDevice);
 }
 
 bool CubeObject::CreateGeometry(ID3D11Device* pDevice)
 {
-    static const TextureVertex Vertices[24] =
+    static const TextureTangentVertex Vertices[24] =
     {
-        { -0.5f, -0.5f,  0.5f, 0.0f, 1.0f },
-        {  0.5f, -0.5f,  0.5f, 1.0f, 1.0f },
-        {  0.5f, -0.5f, -0.5f, 1.0f, 0.0f },
-        { -0.5f, -0.5f, -0.5f, 0.0f, 0.0f },
+        { -0.5f, -0.5f,  0.5f,  1.0f, 0.0f,  0.0f,  0.0f, -1.0f,  0.0f, 0.0f, 1.0f },
+        {  0.5f, -0.5f,  0.5f,  1.0f, 0.0f,  0.0f,  0.0f, -1.0f,  0.0f, 1.0f, 1.0f },
+        {  0.5f, -0.5f, -0.5f,  1.0f, 0.0f,  0.0f,  0.0f, -1.0f,  0.0f, 1.0f, 0.0f },
+        { -0.5f, -0.5f, -0.5f,  1.0f, 0.0f,  0.0f,  0.0f, -1.0f,  0.0f, 0.0f, 0.0f },
 
-        {  0.5f, -0.5f, -0.5f, 0.0f, 1.0f },
-        {  0.5f, -0.5f,  0.5f, 1.0f, 1.0f },
-        {  0.5f,  0.5f,  0.5f, 1.0f, 0.0f },
-        {  0.5f,  0.5f, -0.5f, 0.0f, 0.0f },
+        {  0.5f, -0.5f, -0.5f,  0.0f, 0.0f,  1.0f,  1.0f,  0.0f,  0.0f, 0.0f, 1.0f },
+        {  0.5f, -0.5f,  0.5f,  0.0f, 0.0f,  1.0f,  1.0f,  0.0f,  0.0f, 1.0f, 1.0f },
+        {  0.5f,  0.5f,  0.5f,  0.0f, 0.0f,  1.0f,  1.0f,  0.0f,  0.0f, 1.0f, 0.0f },
+        {  0.5f,  0.5f, -0.5f,  0.0f, 0.0f,  1.0f,  1.0f,  0.0f,  0.0f, 0.0f, 0.0f },
 
-        {  0.5f, -0.5f,  0.5f, 0.0f, 1.0f },
-        { -0.5f, -0.5f,  0.5f, 1.0f, 1.0f },
-        { -0.5f,  0.5f,  0.5f, 1.0f, 0.0f },
-        {  0.5f,  0.5f,  0.5f, 0.0f, 0.0f },
+        {  0.5f, -0.5f,  0.5f, -1.0f, 0.0f,  0.0f,  0.0f,  0.0f,  1.0f, 0.0f, 1.0f },
+        { -0.5f, -0.5f,  0.5f, -1.0f, 0.0f,  0.0f,  0.0f,  0.0f,  1.0f, 1.0f, 1.0f },
+        { -0.5f,  0.5f,  0.5f, -1.0f, 0.0f,  0.0f,  0.0f,  0.0f,  1.0f, 1.0f, 0.0f },
+        {  0.5f,  0.5f,  0.5f, -1.0f, 0.0f,  0.0f,  0.0f,  0.0f,  1.0f, 0.0f, 0.0f },
 
-        { -0.5f, -0.5f,  0.5f, 0.0f, 1.0f },
-        { -0.5f, -0.5f, -0.5f, 1.0f, 1.0f },
-        { -0.5f,  0.5f, -0.5f, 1.0f, 0.0f },
-        { -0.5f,  0.5f,  0.5f, 0.0f, 0.0f },
+        { -0.5f, -0.5f,  0.5f,  0.0f, 0.0f, -1.0f, -1.0f,  0.0f,  0.0f, 0.0f, 1.0f },
+        { -0.5f, -0.5f, -0.5f,  0.0f, 0.0f, -1.0f, -1.0f,  0.0f,  0.0f, 1.0f, 1.0f },
+        { -0.5f,  0.5f, -0.5f,  0.0f, 0.0f, -1.0f, -1.0f,  0.0f,  0.0f, 1.0f, 0.0f },
+        { -0.5f,  0.5f,  0.5f,  0.0f, 0.0f, -1.0f, -1.0f,  0.0f,  0.0f, 0.0f, 0.0f },
 
-        { -0.5f,  0.5f,  0.5f, 0.0f, 1.0f },
-        {  0.5f,  0.5f,  0.5f, 1.0f, 1.0f },
-        {  0.5f,  0.5f, -0.5f, 1.0f, 0.0f },
-        { -0.5f,  0.5f, -0.5f, 0.0f, 0.0f },
+        { -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,  0.0f,  0.0f,  1.0f,  0.0f, 0.0f, 1.0f },
+        {  0.5f,  0.5f,  0.5f,  1.0f, 0.0f,  0.0f,  0.0f,  1.0f,  0.0f, 1.0f, 1.0f },
+        {  0.5f,  0.5f, -0.5f,  1.0f, 0.0f,  0.0f,  0.0f,  1.0f,  0.0f, 1.0f, 0.0f },
+        { -0.5f,  0.5f, -0.5f,  1.0f, 0.0f,  0.0f,  0.0f,  1.0f,  0.0f, 0.0f, 0.0f },
 
-        { -0.5f, -0.5f, -0.5f, 0.0f, 1.0f },
-        {  0.5f, -0.5f, -0.5f, 1.0f, 1.0f },
-        {  0.5f,  0.5f, -0.5f, 1.0f, 0.0f },
-        { -0.5f,  0.5f, -0.5f, 0.0f, 0.0f }
+        { -0.5f, -0.5f, -0.5f,  1.0f, 0.0f,  0.0f,  0.0f,  0.0f, -1.0f, 0.0f, 1.0f },
+        {  0.5f, -0.5f, -0.5f,  1.0f, 0.0f,  0.0f,  0.0f,  0.0f, -1.0f, 1.0f, 1.0f },
+        {  0.5f,  0.5f, -0.5f,  1.0f, 0.0f,  0.0f,  0.0f,  0.0f, -1.0f, 1.0f, 0.0f },
+        { -0.5f,  0.5f, -0.5f,  1.0f, 0.0f,  0.0f,  0.0f,  0.0f, -1.0f, 0.0f, 0.0f }
     };
 
     static const UINT16 Indices[36] =
@@ -100,7 +166,7 @@ bool CubeObject::CreateShaders(ID3D11Device* pDevice)
 {
     {
         ID3DBlob* pVSCode = nullptr;
-        HRESULT hr = CompileShaderFromFileMemory(L"Triangle.vs", "vs", "vs_5_0", &pVSCode);
+        HRESULT hr = CompileShaderFromFileMemory(L"LitCube.vs", "vs", "vs_5_0", &pVSCode);
         if (FAILED(hr) || !pVSCode)
             return false;
 
@@ -115,17 +181,19 @@ bool CubeObject::CreateShaders(ID3D11Device* pDevice)
             return false;
         }
 
-        SetResourceName(m_Material.pVertexShader, "Triangle.vs");
+        SetResourceName(m_Material.pVertexShader, "LitCube.vs");
 
         static const D3D11_INPUT_ELEMENT_DESC InputDesc[] =
         {
-            { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,  D3D11_INPUT_PER_VERTEX_DATA, 0 },
-            { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 }
+            { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,  0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "TANGENT",  0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, 36, D3D11_INPUT_PER_VERTEX_DATA, 0 }
         };
 
         hr = pDevice->CreateInputLayout(
             InputDesc,
-            2,
+            4,
             pVSCode->GetBufferPointer(),
             pVSCode->GetBufferSize(),
             &m_Material.pInputLayout);
@@ -139,8 +207,15 @@ bool CubeObject::CreateShaders(ID3D11Device* pDevice)
     }
 
     {
+        const std::vector<std::string> pixelShaderDefines = { "USE_NORMAL_MAP" };
+
         ID3DBlob* pPSCode = nullptr;
-        const HRESULT hrCompile = CompileShaderFromFileMemory(L"Triangle.ps", "ps", "ps_5_0", &pPSCode);
+        const HRESULT hrCompile = CompileShaderFromFileMemory(
+            L"LitCube.ps",
+            "ps",
+            "ps_5_0",
+            &pPSCode,
+            &pixelShaderDefines);
         if (FAILED(hrCompile) || !pPSCode)
             return false;
 
@@ -155,58 +230,28 @@ bool CubeObject::CreateShaders(ID3D11Device* pDevice)
         if (FAILED(hr) || !m_Material.pPixelShader)
             return false;
 
-        SetResourceName(m_Material.pPixelShader, "Triangle.ps");
+        SetResourceName(m_Material.pPixelShader, "LitCube.ps");
     }
 
     return true;
 }
 
-bool CubeObject::CreateTexture(ID3D11Device* pDevice)
+bool CubeObject::CreateTextures(ID3D11Device* pDevice)
 {
-    TextureDesc textureDesc;
-    if (!LoadDDS(L"Cube.dds", textureDesc))
-        return false;
-
-    D3D11_TEXTURE2D_DESC desc{};
-    desc.Format = textureDesc.fmt;
-    desc.ArraySize = 1;
-    desc.MipLevels = textureDesc.mipmapsCount;
-    desc.Usage = D3D11_USAGE_IMMUTABLE;
-    desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-    desc.CPUAccessFlags = 0;
-    desc.MiscFlags = 0;
-    desc.SampleDesc.Count = 1;
-    desc.SampleDesc.Quality = 0;
-    desc.Width = textureDesc.width;
-    desc.Height = textureDesc.height;
-
-    std::vector<D3D11_SUBRESOURCE_DATA> subresources;
-    FillTextureSubresourceData(
-        textureDesc.fmt,
-        textureDesc.width,
-        textureDesc.height,
-        textureDesc.mipmapsCount,
-        textureDesc.data.data(),
-        subresources);
-
-    HRESULT hr = pDevice->CreateTexture2D(&desc, subresources.data(), &m_Material.pTexture);
-    if (FAILED(hr) || !m_Material.pTexture)
-        return false;
-
-    SetResourceName(m_Material.pTexture, "CubeTexture");
-
-    D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc{};
-    srvDesc.Format = textureDesc.fmt;
-    srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-    srvDesc.Texture2D.MipLevels = textureDesc.mipmapsCount;
-    srvDesc.Texture2D.MostDetailedMip = 0;
-
-    hr = pDevice->CreateShaderResourceView(m_Material.pTexture, &srvDesc, &m_Material.pTextureView);
-    if (FAILED(hr) || !m_Material.pTextureView)
-        return false;
-
-    SetResourceName(m_Material.pTextureView, "CubeTextureSRV");
-    return true;
+    return CreateTextureFromDDS(
+        pDevice,
+        L"Cube.dds",
+        "CubeColorTexture",
+        "CubeColorTextureSRV",
+        &m_Material.pColorTexture,
+        &m_Material.pColorTextureView) &&
+        CreateTextureFromDDS(
+            pDevice,
+            L"cube_nm.dds",
+            "CubeNormalTexture",
+            "CubeNormalTextureSRV",
+            &m_Material.pNormalTexture,
+            &m_Material.pNormalTextureView);
 }
 
 bool CubeObject::CreateSampler(ID3D11Device* pDevice)
@@ -241,7 +286,8 @@ bool CubeObject::IsReady() const
         m_Material.pVertexShader != nullptr &&
         m_Material.pPixelShader != nullptr &&
         m_Material.pInputLayout != nullptr &&
-        m_Material.pTextureView != nullptr &&
+        m_Material.pColorTextureView != nullptr &&
+        m_Material.pNormalTextureView != nullptr &&
         m_Material.pSampler != nullptr;
 }
 
@@ -256,7 +302,7 @@ void CubeObject::Render(
     pDeviceContext->IASetIndexBuffer(m_Geometry.pIndexBuffer, DXGI_FORMAT_R16_UINT, 0);
 
     ID3D11Buffer* vertexBuffers[] = { m_Geometry.pVertexBuffer };
-    UINT strides[] = { sizeof(TextureVertex) };
+    UINT strides[] = { sizeof(TextureTangentVertex) };
     UINT offsets[] = { 0 };
     pDeviceContext->IASetVertexBuffers(0, 1, vertexBuffers, strides, offsets);
 
@@ -269,22 +315,32 @@ void CubeObject::Render(
     ID3D11Buffer* vsConstantBuffers[] = { pGeomBuffer, pSceneBuffer };
     pDeviceContext->VSSetConstantBuffers(0, 2, vsConstantBuffers);
 
+    ID3D11Buffer* psConstantBuffers[] = { pGeomBuffer, pSceneBuffer };
+    pDeviceContext->PSSetConstantBuffers(0, 2, psConstantBuffers);
+
     ID3D11SamplerState* samplers[] = { m_Material.pSampler };
     pDeviceContext->PSSetSamplers(0, 1, samplers);
 
-    ID3D11ShaderResourceView* resources[] = { m_Material.pTextureView };
-    pDeviceContext->PSSetShaderResources(0, 1, resources);
+    ID3D11ShaderResourceView* resources[] =
+    {
+        m_Material.pColorTextureView,
+        m_Material.pNormalTextureView
+    };
+    pDeviceContext->PSSetShaderResources(0, 2, resources);
 
     pDeviceContext->RSSetState(nullptr);
-
     pDeviceContext->DrawIndexed(m_Geometry.indexCount, 0, 0);
 }
 
 void CubeObject::Shutdown()
 {
     SAFE_RELEASE(m_Material.pSampler);
-    SAFE_RELEASE(m_Material.pTextureView);
-    SAFE_RELEASE(m_Material.pTexture);
+
+    SAFE_RELEASE(m_Material.pNormalTextureView);
+    SAFE_RELEASE(m_Material.pNormalTexture);
+    SAFE_RELEASE(m_Material.pColorTextureView);
+    SAFE_RELEASE(m_Material.pColorTexture);
+
     SAFE_RELEASE(m_Material.pInputLayout);
     SAFE_RELEASE(m_Material.pPixelShader);
     SAFE_RELEASE(m_Material.pVertexShader);

@@ -15,7 +15,8 @@ public:
         ID3D11DeviceContext* pDeviceContext,
         const DirectX::XMMATRIX& model,
         const DirectX::XMFLOAT4& size,
-        const DirectX::XMFLOAT4& color);
+        const DirectX::XMFLOAT4& color,
+        float shininess = 48.0f);
 
     ID3D11Buffer* GetSceneBuffer() const;
     ID3D11Buffer* GetGeomBuffer() const;

@@ -1,0 +1,50 @@
+#include "LightingCommon.hlsli"
+
+Texture2D colorTexture : register(t0);
+SamplerState colorSampler : register(s0);
+
+#ifdef USE_NORMAL_MAP
+Texture2D normalMapTexture : register(t1);
+#endif
+
+struct VSOutput
+{
+    float4 pos      : SV_Position;
+    float3 worldPos : TEXCOORD0;
+    float3 tang     : TEXCOORD1;
+    float3 norm     : TEXCOORD2;
+    float2 uv       : TEXCOORD3;
+};
+
+float3 ResolveNormal(VSOutput pixel)
+{
+    float3 normal = normalize(pixel.norm);
+
+#ifdef USE_NORMAL_MAP
+    float3 tang = normalize(pixel.tang);
+    float3 binorm = normalize(cross(pixel.norm, pixel.tang));
+
+    float3 localNorm =
+        normalMapTexture.Sample(colorSampler, pixel.uv).xyz * 2.0f -
+        float3(1.0f, 1.0f, 1.0f);
+
+    normal =
+        localNorm.x * tang +
+        localNorm.y * binorm +
+        localNorm.z * normalize(pixel.norm);
+
+    normal = normalize(normal);
+#endif
+
+    return normal;
+}
+
+float4 ps(VSOutput pixel) : SV_Target0
+{
+    float3 albedo = colorTexture.Sample(colorSampler, pixel.uv).xyz * color.xyz;
+    float3 normal = ResolveNormal(pixel);
+
+    float3 finalColor = ComputePhongLighting(pixel.worldPos, normal, albedo);
+
+    return float4(saturate(finalColor), 1.0f);
+}

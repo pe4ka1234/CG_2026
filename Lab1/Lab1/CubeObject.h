@@ -28,15 +28,19 @@ private:
         ID3D11VertexShader* pVertexShader = nullptr;
         ID3D11PixelShader* pPixelShader = nullptr;
         ID3D11InputLayout* pInputLayout = nullptr;
-        ID3D11Texture2D* pTexture = nullptr;
-        ID3D11ShaderResourceView* pTextureView = nullptr;
+
+        ID3D11Texture2D* pColorTexture = nullptr;
+        ID3D11ShaderResourceView* pColorTextureView = nullptr;
+        ID3D11Texture2D* pNormalTexture = nullptr;
+        ID3D11ShaderResourceView* pNormalTextureView = nullptr;
+
         ID3D11SamplerState* pSampler = nullptr;
     };
 
 private:
     bool CreateGeometry(ID3D11Device* pDevice);
     bool CreateShaders(ID3D11Device* pDevice);
-    bool CreateTexture(ID3D11Device* pDevice);
+    bool CreateTextures(ID3D11Device* pDevice);
     bool CreateSampler(ID3D11Device* pDevice);
 
 private:

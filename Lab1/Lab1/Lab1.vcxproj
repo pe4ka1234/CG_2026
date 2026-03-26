@@ -113,7 +113,11 @@ copy /Y "$(ProjectDir)Triangle.ps" "$(OutDir)"
 copy /Y "$(ProjectDir)Skybox.vs" "$(OutDir)"
 copy /Y "$(ProjectDir)Skybox.ps" "$(OutDir)"
 copy /Y "$(ProjectDir)Transparent.ps" "$(OutDir)"
+copy /Y "$(ProjectDir)LitCube.vs" "$(OutDir)"
+copy /Y "$(ProjectDir)LitCube.ps" "$(OutDir)"
+copy /Y "$(ProjectDir)LightingCommon.hlsli" "$(OutDir)"
 if exist "$(ProjectDir)Cube.dds" copy /Y "$(ProjectDir)Cube.dds" "$(OutDir)"
+if exist "$(ProjectDir)cube_nm.dds" copy /Y "$(ProjectDir)cube_nm.dds" "$(OutDir)"
 if exist "$(ProjectDir)posx.dds" copy /Y "$(ProjectDir)posx.dds" "$(OutDir)"
 if exist "$(ProjectDir)negx.dds" copy /Y "$(ProjectDir)negx.dds" "$(OutDir)"
 if exist "$(ProjectDir)posy.dds" copy /Y "$(ProjectDir)posy.dds" "$(OutDir)"
@@ -141,7 +145,11 @@ copy /Y "$(ProjectDir)Triangle.ps" "$(OutDir)"
 copy /Y "$(ProjectDir)Skybox.vs" "$(OutDir)"
 copy /Y "$(ProjectDir)Skybox.ps" "$(OutDir)"
 copy /Y "$(ProjectDir)Transparent.ps" "$(OutDir)"
+copy /Y "$(ProjectDir)LitCube.vs" "$(OutDir)"
+copy /Y "$(ProjectDir)LitCube.ps" "$(OutDir)"
+copy /Y "$(ProjectDir)LightingCommon.hlsli" "$(OutDir)"
 if exist "$(ProjectDir)Cube.dds" copy /Y "$(ProjectDir)Cube.dds" "$(OutDir)"
+if exist "$(ProjectDir)cube_nm.dds" copy /Y "$(ProjectDir)cube_nm.dds" "$(OutDir)"
 if exist "$(ProjectDir)posx.dds" copy /Y "$(ProjectDir)posx.dds" "$(OutDir)"
 if exist "$(ProjectDir)negx.dds" copy /Y "$(ProjectDir)negx.dds" "$(OutDir)"
 if exist "$(ProjectDir)posy.dds" copy /Y "$(ProjectDir)posy.dds" "$(OutDir)"
@@ -189,6 +197,9 @@ if exist "$(ProjectDir)negz.dds" copy /Y "$(ProjectDir)negz.dds" "$(OutDir)"</Co
     <Image Include="small.ico" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="LightingCommon.hlsli" />
+    <None Include="LitCube.ps" />
+    <None Include="LitCube.vs" />
     <None Include="Skybox.ps" />
     <None Include="Skybox.vs" />
     <None Include="Transparent.ps" />
