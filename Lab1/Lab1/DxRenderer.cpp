@@ -231,8 +231,8 @@ void DxRenderer::Render()
         m_SceneResources.GetGeomBuffer(),
         m_SceneResources.GetSceneBuffer());
 
-    ID3D11ShaderResourceView* nullResources[] = { nullptr };
-    pDeviceContext->PSSetShaderResources(0, 1, nullResources);
+    ID3D11ShaderResourceView* nullResources[] = { nullptr, nullptr };
+    pDeviceContext->PSSetShaderResources(0, 2, nullResources);
 
     std::vector<TransparentInstance> transparentObjects;
     transparentObjects.push_back({
@@ -278,7 +278,7 @@ void DxRenderer::Render()
 
     pDeviceContext->OMSetBlendState(nullptr, nullptr, 0xFFFFFFFF);
     pDeviceContext->OMSetDepthStencilState(nullptr, 0);
-    pDeviceContext->PSSetShaderResources(0, 1, nullResources);
+    pDeviceContext->PSSetShaderResources(0, 2, nullResources);
 
     m_DeviceResources.Present();
 }

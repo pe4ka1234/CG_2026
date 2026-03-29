@@ -128,5 +128,14 @@
     <None Include="Transparent.ps">
       <Filter>Исходные файлы</Filter>
     </None>
+    <None Include="LightingCommon.hlsli">
+      <Filter>Исходные файлы</Filter>
+    </None>
+    <None Include="LitCube.vs">
+      <Filter>Исходные файлы</Filter>
+    </None>
+    <None Include="LitCube.ps">
+      <Filter>Исходные файлы</Filter>
+    </None>
   </ItemGroup>
 </Project>

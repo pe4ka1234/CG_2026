@@ -5,6 +5,7 @@
 
 #include <assert.h>
 #include <cmath>
+#include <cstring>
 
 bool SceneResources::Init(ID3D11Device* pDevice)
 {
@@ -111,7 +112,7 @@ bool SceneResources::UpdateSceneBuffer(ID3D11DeviceContext* pDeviceContext, UINT
     if (FAILED(hr))
         return false;
 
-    SceneBuffer& sceneBuffer = *reinterpret_cast<SceneBuffer*>(subresource.pData);
+    SceneBuffer sceneBuffer{};
     DirectX::XMStoreFloat4x4(&sceneBuffer.vp, DirectX::XMMatrixMultiply(view, proj));
     sceneBuffer.cameraPos = DirectX::XMFLOAT4(
         m_CameraPosition.x,
@@ -119,6 +120,16 @@ bool SceneResources::UpdateSceneBuffer(ID3D11DeviceContext* pDeviceContext, UINT
         m_CameraPosition.z,
         1.0f);
 
+    sceneBuffer.lightCount = DirectX::XMINT4(2, 0, 0, 0);
+    sceneBuffer.ambientColor = DirectX::XMFLOAT4(0.20f, 0.20f, 0.22f, 0.0f);
+
+    sceneBuffer.lights[0].pos = DirectX::XMFLOAT4(0.95f, 0.32f, -1.05f, 1.0f);
+    sceneBuffer.lights[0].color = DirectX::XMFLOAT4(1.95f, 1.20f, 0.72f, 0.0f);
+
+    sceneBuffer.lights[1].pos = DirectX::XMFLOAT4(-1.10f, 0.95f, -0.35f, 1.0f);
+    sceneBuffer.lights[1].color = DirectX::XMFLOAT4(0.46f, 0.62f, 1.18f, 0.0f);
+
+    std::memcpy(subresource.pData, &sceneBuffer, sizeof(sceneBuffer));
     pDeviceContext->Unmap(m_pSceneBuffer, 0);
 
     m_SkyRadius = sqrtf(
@@ -133,7 +144,8 @@ void SceneResources::UpdateGeomBuffer(
     ID3D11DeviceContext* pDeviceContext,
     const DirectX::XMMATRIX& model,
     const DirectX::XMFLOAT4& size,
-    const DirectX::XMFLOAT4& color)
+    const DirectX::XMFLOAT4& color,
+    float shininess)
 {
     if (!m_pGeomBuffer || !pDeviceContext)
         return;
@@ -142,6 +154,17 @@ void SceneResources::UpdateGeomBuffer(
     DirectX::XMStoreFloat4x4(&geomBuffer.model, model);
     geomBuffer.size = size;
     geomBuffer.color = color;
+
+    const DirectX::XMMATRIX normalModel = DirectX::XMMatrixTranspose(
+        DirectX::XMMatrixInverse(nullptr, model));
+    DirectX::XMStoreFloat4x4(&geomBuffer.normalModel, normalModel);
+
+    geomBuffer.materialParams = DirectX::XMFLOAT4(
+        shininess,
+        0.0f,
+        0.0f,
+        0.0f);
+
     pDeviceContext->UpdateSubresource(m_pGeomBuffer, 0, nullptr, &geomBuffer, 0, 0);
 }
 
