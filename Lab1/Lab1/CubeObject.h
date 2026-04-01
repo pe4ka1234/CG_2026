@@ -12,8 +12,10 @@ public:
     bool IsReady() const;
     void Render(
         ID3D11DeviceContext* pDeviceContext,
-        ID3D11Buffer* pGeomBuffer,
-        ID3D11Buffer* pSceneBuffer);
+        ID3D11Buffer* pSceneBuffer,
+        ID3D11Buffer* pGeomBufferInst,
+        ID3D11Buffer* pGeomBufferInstVis,
+        UINT instanceCount);
 
 private:
     struct Geometry
@@ -29,8 +31,9 @@ private:
         ID3D11PixelShader* pPixelShader = nullptr;
         ID3D11InputLayout* pInputLayout = nullptr;
 
-        ID3D11Texture2D* pColorTexture = nullptr;
-        ID3D11ShaderResourceView* pColorTextureView = nullptr;
+        ID3D11Texture2D* pColorTextureArray = nullptr;
+        ID3D11ShaderResourceView* pColorTextureArrayView = nullptr;
+
         ID3D11Texture2D* pNormalTexture = nullptr;
         ID3D11ShaderResourceView* pNormalTextureView = nullptr;
 

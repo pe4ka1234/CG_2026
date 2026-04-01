@@ -16,16 +16,24 @@ public:
 
     ID3D11Device* GetDevice() const;
     ID3D11DeviceContext* GetContext() const;
+
+    ID3D11RenderTargetView* GetBackBufferRTV() const;
+    ID3D11ShaderResourceView* GetColorBufferSRV() const;
+
     UINT GetWidth() const;
     UINT GetHeight() const;
 
 private:
     bool CreateDeviceAndSwapChain();
+
     bool CreateBackBufferRTV();
     void ReleaseBackBufferRTV();
 
     bool CreateDepthBuffer();
     void ReleaseDepthBuffer();
+
+    bool CreateColorBuffer();
+    void ReleaseColorBuffer();
 
 private:
     HWND m_hWnd = nullptr;
@@ -37,6 +45,11 @@ private:
     IDXGISwapChain* m_pSwapChain = nullptr;
 
     ID3D11RenderTargetView* m_pBackBufferRTV = nullptr;
+
     ID3D11Texture2D* m_pDepthTexture = nullptr;
     ID3D11DepthStencilView* m_pDepthStencilView = nullptr;
+
+    ID3D11Texture2D* m_pColorBuffer = nullptr;
+    ID3D11RenderTargetView* m_pColorBufferRTV = nullptr;
+    ID3D11ShaderResourceView* m_pColorBufferSRV = nullptr;
 };

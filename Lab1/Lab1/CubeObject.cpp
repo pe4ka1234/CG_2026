@@ -4,6 +4,9 @@
 #include "DdsLoader.h"
 #include "ShaderUtils.h"
 
+#include <array>
+#include <vector>
+
 namespace
 {
     bool CreateTextureFromDDS(
@@ -57,6 +60,96 @@ namespace
         srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
         srvDesc.Texture2D.MipLevels = textureDesc.mipmapsCount;
         srvDesc.Texture2D.MostDetailedMip = 0;
+
+        hr = pDevice->CreateShaderResourceView(*ppTexture, &srvDesc, ppTextureView);
+        if (FAILED(hr) || !*ppTextureView)
+        {
+            SAFE_RELEASE(*ppTexture);
+            return false;
+        }
+
+        SetResourceName(*ppTextureView, srvDebugName);
+        return true;
+    }
+
+    bool CreateTextureArrayFromDDS(
+        ID3D11Device* pDevice,
+        const std::array<std::wstring, 2>& textureNames,
+        const char* textureDebugName,
+        const char* srvDebugName,
+        ID3D11Texture2D** ppTexture,
+        ID3D11ShaderResourceView** ppTextureView)
+    {
+        if (!pDevice || !ppTexture || !ppTextureView)
+            return false;
+
+        *ppTexture = nullptr;
+        *ppTextureView = nullptr;
+
+        std::array<TextureDesc, 2> textureDesc;
+        for (size_t i = 0; i < textureNames.size(); ++i)
+        {
+            if (!LoadDDS(textureNames[i].c_str(), textureDesc[i]))
+                return false;
+        }
+
+        for (size_t i = 1; i < textureDesc.size(); ++i)
+        {
+            if (textureDesc[i].fmt != textureDesc[0].fmt ||
+                textureDesc[i].width != textureDesc[0].width ||
+                textureDesc[i].height != textureDesc[0].height ||
+                textureDesc[i].mipmapsCount != textureDesc[0].mipmapsCount)
+            {
+                return false;
+            }
+        }
+
+        D3D11_TEXTURE2D_DESC desc{};
+        desc.Format = textureDesc[0].fmt;
+        desc.ArraySize = 2;
+        desc.MipLevels = textureDesc[0].mipmapsCount;
+        desc.Usage = D3D11_USAGE_IMMUTABLE;
+        desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+        desc.CPUAccessFlags = 0;
+        desc.MiscFlags = 0;
+        desc.SampleDesc.Count = 1;
+        desc.SampleDesc.Quality = 0;
+        desc.Width = textureDesc[0].width;
+        desc.Height = textureDesc[0].height;
+
+        std::vector<D3D11_SUBRESOURCE_DATA> subresources(desc.ArraySize * desc.MipLevels);
+
+        for (UINT slice = 0; slice < desc.ArraySize; ++slice)
+        {
+            std::vector<D3D11_SUBRESOURCE_DATA> mipData;
+            FillTextureSubresourceData(
+                textureDesc[slice].fmt,
+                textureDesc[slice].width,
+                textureDesc[slice].height,
+                textureDesc[slice].mipmapsCount,
+                textureDesc[slice].data.data(),
+                mipData);
+
+            for (UINT mip = 0; mip < desc.MipLevels; ++mip)
+            {
+                const UINT subresourceIndex = D3D11CalcSubresource(mip, slice, desc.MipLevels);
+                subresources[subresourceIndex] = mipData[mip];
+            }
+        }
+
+        HRESULT hr = pDevice->CreateTexture2D(&desc, subresources.data(), ppTexture);
+        if (FAILED(hr) || !*ppTexture)
+            return false;
+
+        SetResourceName(*ppTexture, textureDebugName);
+
+        D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc{};
+        srvDesc.Format = desc.Format;
+        srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2DARRAY;
+        srvDesc.Texture2DArray.ArraySize = 2;
+        srvDesc.Texture2DArray.FirstArraySlice = 0;
+        srvDesc.Texture2DArray.MipLevels = desc.MipLevels;
+        srvDesc.Texture2DArray.MostDetailedMip = 0;
 
         hr = pDevice->CreateShaderResourceView(*ppTexture, &srvDesc, ppTextureView);
         if (FAILED(hr) || !*ppTextureView)
@@ -207,19 +300,12 @@ bool CubeObject::CreateShaders(ID3D11Device* pDevice)
     }
 
     {
-        const std::vector<std::string> pixelShaderDefines = { "USE_NORMAL_MAP" };
-
         ID3DBlob* pPSCode = nullptr;
-        const HRESULT hrCompile = CompileShaderFromFileMemory(
-            L"LitCube.ps",
-            "ps",
-            "ps_5_0",
-            &pPSCode,
-            &pixelShaderDefines);
-        if (FAILED(hrCompile) || !pPSCode)
+        HRESULT hr = CompileShaderFromFileMemory(L"LitCube.ps", "ps", "ps_5_0", &pPSCode);
+        if (FAILED(hr) || !pPSCode)
             return false;
 
-        const HRESULT hr = pDevice->CreatePixelShader(
+        hr = pDevice->CreatePixelShader(
             pPSCode->GetBufferPointer(),
             pPSCode->GetBufferSize(),
             nullptr,
@@ -238,16 +324,22 @@ bool CubeObject::CreateShaders(ID3D11Device* pDevice)
 
 bool CubeObject::CreateTextures(ID3D11Device* pDevice)
 {
-    return CreateTextureFromDDS(
+    const std::array<std::wstring, 2> colorTextures =
+    {
+        L"Brick.dds",
+        L"Kitty.dds"
+    };
+
+    return CreateTextureArrayFromDDS(
         pDevice,
-        L"Cube.dds",
-        "CubeColorTexture",
-        "CubeColorTextureSRV",
-        &m_Material.pColorTexture,
-        &m_Material.pColorTextureView) &&
+        colorTextures,
+        "CubeColorTextureArray",
+        "CubeColorTextureArraySRV",
+        &m_Material.pColorTextureArray,
+        &m_Material.pColorTextureArrayView) &&
         CreateTextureFromDDS(
             pDevice,
-            L"cube_nm.dds",
+            L"BrickNM.dds",
             "CubeNormalTexture",
             "CubeNormalTextureSRV",
             &m_Material.pNormalTexture,
@@ -286,17 +378,19 @@ bool CubeObject::IsReady() const
         m_Material.pVertexShader != nullptr &&
         m_Material.pPixelShader != nullptr &&
         m_Material.pInputLayout != nullptr &&
-        m_Material.pColorTextureView != nullptr &&
+        m_Material.pColorTextureArrayView != nullptr &&
         m_Material.pNormalTextureView != nullptr &&
         m_Material.pSampler != nullptr;
 }
 
 void CubeObject::Render(
     ID3D11DeviceContext* pDeviceContext,
-    ID3D11Buffer* pGeomBuffer,
-    ID3D11Buffer* pSceneBuffer)
+    ID3D11Buffer* pSceneBuffer,
+    ID3D11Buffer* pGeomBufferInst,
+    ID3D11Buffer* pGeomBufferInstVis,
+    UINT instanceCount)
 {
-    if (!IsReady())
+    if (!IsReady() || instanceCount == 0)
         return;
 
     pDeviceContext->IASetIndexBuffer(m_Geometry.pIndexBuffer, DXGI_FORMAT_R16_UINT, 0);
@@ -312,24 +406,34 @@ void CubeObject::Render(
     pDeviceContext->VSSetShader(m_Material.pVertexShader, nullptr, 0);
     pDeviceContext->PSSetShader(m_Material.pPixelShader, nullptr, 0);
 
-    ID3D11Buffer* vsConstantBuffers[] = { pGeomBuffer, pSceneBuffer };
-    pDeviceContext->VSSetConstantBuffers(0, 2, vsConstantBuffers);
+    ID3D11Buffer* vsConstantBuffers[] =
+    {
+        pSceneBuffer,
+        pGeomBufferInst,
+        pGeomBufferInstVis
+    };
+    pDeviceContext->VSSetConstantBuffers(0, 3, vsConstantBuffers);
 
-    ID3D11Buffer* psConstantBuffers[] = { pGeomBuffer, pSceneBuffer };
-    pDeviceContext->PSSetConstantBuffers(0, 2, psConstantBuffers);
+    ID3D11Buffer* psConstantBuffers[] =
+    {
+        pSceneBuffer,
+        pGeomBufferInst,
+        pGeomBufferInstVis
+    };
+    pDeviceContext->PSSetConstantBuffers(0, 3, psConstantBuffers);
 
     ID3D11SamplerState* samplers[] = { m_Material.pSampler };
     pDeviceContext->PSSetSamplers(0, 1, samplers);
 
     ID3D11ShaderResourceView* resources[] =
     {
-        m_Material.pColorTextureView,
+        m_Material.pColorTextureArrayView,
         m_Material.pNormalTextureView
     };
     pDeviceContext->PSSetShaderResources(0, 2, resources);
 
     pDeviceContext->RSSetState(nullptr);
-    pDeviceContext->DrawIndexed(m_Geometry.indexCount, 0, 0);
+    pDeviceContext->DrawIndexedInstanced(m_Geometry.indexCount, instanceCount, 0, 0, 0);
 }
 
 void CubeObject::Shutdown()
@@ -338,8 +442,9 @@ void CubeObject::Shutdown()
 
     SAFE_RELEASE(m_Material.pNormalTextureView);
     SAFE_RELEASE(m_Material.pNormalTexture);
-    SAFE_RELEASE(m_Material.pColorTextureView);
-    SAFE_RELEASE(m_Material.pColorTexture);
+
+    SAFE_RELEASE(m_Material.pColorTextureArrayView);
+    SAFE_RELEASE(m_Material.pColorTextureArray);
 
     SAFE_RELEASE(m_Material.pInputLayout);
     SAFE_RELEASE(m_Material.pPixelShader);
