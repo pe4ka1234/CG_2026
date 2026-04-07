@@ -1,50 +1,74 @@
 #include "LightingCommon.hlsli"
 
-Texture2D colorTexture : register(t0);
-SamplerState colorSampler : register(s0);
+#define MAX_INST 100
 
-#ifdef USE_NORMAL_MAP
+struct GeomBuffer
+{
+    float4x4 model;
+    float4x4 norm;
+    float4 shineSpeedTexIdNM; // x - shininess, y - rotation speed, z - texture id, w - normal map presence
+    float4 posAngle;          // xyz - position, w - current angle
+};
+
+cbuffer GeomBufferInst : register(b1)
+{
+    GeomBuffer geomBuffer[MAX_INST];
+};
+
+cbuffer GeomBufferInstVis : register(b2)
+{
+    uint4 ids[MAX_INST];
+};
+
+Texture2DArray colorTexture : register(t0);
 Texture2D normalMapTexture : register(t1);
-#endif
+SamplerState colorSampler : register(s0);
 
 struct VSOutput
 {
-    float4 pos      : SV_Position;
-    float3 worldPos : TEXCOORD0;
-    float3 tang     : TEXCOORD1;
-    float3 norm     : TEXCOORD2;
-    float2 uv       : TEXCOORD3;
+    float4 pos : SV_Position;
+    float4 worldPos : POSITION;
+    float3 tang : TANGENT;
+    float3 norm : NORMAL;
+    float2 uv : TEXCOORD;
+    nointerpolation uint instanceId : INST_ID;
 };
-
-float3 ResolveNormal(VSOutput pixel)
-{
-    float3 normal = normalize(pixel.norm);
-
-#ifdef USE_NORMAL_MAP
-    float3 tang = normalize(pixel.tang);
-    float3 binorm = normalize(cross(pixel.norm, pixel.tang));
-
-    float3 localNorm =
-        normalMapTexture.Sample(colorSampler, pixel.uv).xyz * 2.0f -
-        float3(1.0f, 1.0f, 1.0f);
-
-    normal =
-        localNorm.x * tang +
-        localNorm.y * binorm +
-        localNorm.z * normalize(pixel.norm);
-
-    normal = normalize(normal);
-#endif
-
-    return normal;
-}
 
 float4 ps(VSOutput pixel) : SV_Target0
 {
-    float3 albedo = colorTexture.Sample(colorSampler, pixel.uv).xyz * color.xyz;
-    float3 normal = ResolveNormal(pixel);
+    uint idx = pixel.instanceId;
 
-    float3 finalColor = ComputePhongLighting(pixel.worldPos, normal, albedo);
+    float3 color = colorTexture.Sample(
+        colorSampler,
+        float3(pixel.uv, geomBuffer[idx].shineSpeedTexIdNM.z)).xyz;
 
-    return float4(saturate(finalColor), 1.0f);
+    uint flags = (uint)geomBuffer[idx].shineSpeedTexIdNM.w;
+
+    float3 normal = normalize(pixel.norm);
+
+    if (lightCount.y > 0 && flags == 1)
+    {
+        float3 tang = normalize(pixel.tang);
+        float3 binorm = normalize(cross(pixel.norm, pixel.tang));
+
+        float3 localNorm =
+            normalMapTexture.Sample(colorSampler, pixel.uv).xyz * 2.0f -
+            float3(1.0f, 1.0f, 1.0f);
+
+        normal =
+            localNorm.x * tang +
+            localNorm.y * binorm +
+            localNorm.z * normalize(pixel.norm);
+
+        normal = normalize(normal);
+    }
+
+    return float4(
+        CalculateColor(
+            color,
+            normal,
+            pixel.worldPos.xyz,
+            geomBuffer[idx].shineSpeedTexIdNM.x,
+            false),
+        1.0f);
 }

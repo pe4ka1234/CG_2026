@@ -2,6 +2,8 @@
 
 #include "DxCommon.h"
 
+constexpr UINT MaxInst = 100;
+
 struct TextureVertex
 {
     float x, y, z;
@@ -34,6 +36,24 @@ struct GeomBuffer
     DirectX::XMFLOAT4 color;
     DirectX::XMFLOAT4X4 normalModel;
     DirectX::XMFLOAT4 materialParams;
+};
+
+struct GeomBufferInstData
+{
+    DirectX::XMFLOAT4X4 model;
+    DirectX::XMFLOAT4X4 norm;
+    DirectX::XMFLOAT4 shineSpeedTexIdNM; 
+    DirectX::XMFLOAT4 posAngle;          
+};
+
+struct GeomBufferInst
+{
+    GeomBufferInstData geomBuffer[MaxInst];
+};
+
+struct GeomBufferInstVis
+{
+    DirectX::XMUINT4 ids[MaxInst];
 };
 
 struct SceneBuffer

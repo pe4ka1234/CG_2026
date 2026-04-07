@@ -1,6 +1,8 @@
 #include "framework.h"
 #include "DeviceResources.h"
 
+#include "ShaderUtils.h"
+
 #include <assert.h>
 
 bool DeviceResources::Init(HWND hWnd, UINT width, UINT height)
@@ -14,6 +16,8 @@ bool DeviceResources::Init(HWND hWnd, UINT width, UINT height)
     if (!CreateBackBufferRTV())
         return false;
     if (!CreateDepthBuffer())
+        return false;
+    if (!CreateColorBuffer())
         return false;
 
     return true;
@@ -128,7 +132,11 @@ bool DeviceResources::CreateBackBufferRTV()
     const HRESULT viewHr = m_pDevice->CreateRenderTargetView(pBackBuffer, nullptr, &m_pBackBufferRTV);
     SAFE_RELEASE(pBackBuffer);
 
-    return SUCCEEDED(viewHr) && m_pBackBufferRTV != nullptr;
+    if (FAILED(viewHr) || !m_pBackBufferRTV)
+        return false;
+
+    SetResourceName(m_pBackBufferRTV, "BackBufferRTV");
+    return true;
 }
 
 void DeviceResources::ReleaseBackBufferRTV()
@@ -168,6 +176,8 @@ bool DeviceResources::CreateDepthBuffer()
         return false;
     }
 
+    SetResourceName(m_pDepthTexture, "DepthBuffer");
+    SetResourceName(m_pDepthStencilView, "DepthBufferDSV");
     return true;
 }
 
@@ -175,6 +185,57 @@ void DeviceResources::ReleaseDepthBuffer()
 {
     SAFE_RELEASE(m_pDepthStencilView);
     SAFE_RELEASE(m_pDepthTexture);
+}
+
+bool DeviceResources::CreateColorBuffer()
+{
+    if (!m_pDevice)
+        return false;
+
+    D3D11_TEXTURE2D_DESC desc{};
+    desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    desc.ArraySize = 1;
+    desc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+    desc.CPUAccessFlags = 0;
+    desc.MiscFlags = 0;
+    desc.SampleDesc.Count = 1;
+    desc.SampleDesc.Quality = 0;
+    desc.Usage = D3D11_USAGE_DEFAULT;
+    desc.Height = m_Height;
+    desc.Width = m_Width;
+    desc.MipLevels = 1;
+
+    HRESULT hr = m_pDevice->CreateTexture2D(&desc, nullptr, &m_pColorBuffer);
+    if (FAILED(hr) || !m_pColorBuffer)
+        return false;
+
+    hr = m_pDevice->CreateRenderTargetView(m_pColorBuffer, nullptr, &m_pColorBufferRTV);
+    if (FAILED(hr) || !m_pColorBufferRTV)
+    {
+        SAFE_RELEASE(m_pColorBuffer);
+        return false;
+    }
+
+    hr = m_pDevice->CreateShaderResourceView(m_pColorBuffer, nullptr, &m_pColorBufferSRV);
+    if (FAILED(hr) || !m_pColorBufferSRV)
+    {
+        SAFE_RELEASE(m_pColorBufferRTV);
+        SAFE_RELEASE(m_pColorBuffer);
+        return false;
+    }
+
+    SetResourceName(m_pColorBuffer, "ColorBuffer");
+    SetResourceName(m_pColorBufferRTV, "ColorBufferRTV");
+    SetResourceName(m_pColorBufferSRV, "ColorBufferSRV");
+
+    return true;
+}
+
+void DeviceResources::ReleaseColorBuffer()
+{
+    SAFE_RELEASE(m_pColorBufferSRV);
+    SAFE_RELEASE(m_pColorBufferRTV);
+    SAFE_RELEASE(m_pColorBuffer);
 }
 
 void DeviceResources::OnResize(UINT width, UINT height)
@@ -187,6 +248,7 @@ void DeviceResources::OnResize(UINT width, UINT height)
     m_Width = width;
     m_Height = height;
 
+    ReleaseColorBuffer();
     ReleaseBackBufferRTV();
     ReleaseDepthBuffer();
 
@@ -204,8 +266,10 @@ void DeviceResources::OnResize(UINT width, UINT height)
         return;
     if (!CreateDepthBuffer())
         return;
+    if (!CreateColorBuffer())
+        return;
 
-    ID3D11RenderTargetView* views[] = { m_pBackBufferRTV };
+    ID3D11RenderTargetView* views[] = { m_pColorBufferRTV };
     m_pDeviceContext->OMSetRenderTargets(1, views, m_pDepthStencilView);
 }
 
@@ -216,9 +280,9 @@ void DeviceResources::BeginFrame(const float clearColor[4])
 
     m_pDeviceContext->ClearState();
 
-    ID3D11RenderTargetView* views[] = { m_pBackBufferRTV };
+    ID3D11RenderTargetView* views[] = { m_pColorBufferRTV };
     m_pDeviceContext->OMSetRenderTargets(1, views, m_pDepthStencilView);
-    m_pDeviceContext->ClearRenderTargetView(m_pBackBufferRTV, clearColor);
+    m_pDeviceContext->ClearRenderTargetView(m_pColorBufferRTV, clearColor);
     m_pDeviceContext->ClearDepthStencilView(
         m_pDepthStencilView,
         D3D11_CLEAR_DEPTH,
@@ -253,6 +317,7 @@ void DeviceResources::Present()
 
 void DeviceResources::Shutdown()
 {
+    ReleaseColorBuffer();
     ReleaseDepthBuffer();
     ReleaseBackBufferRTV();
 
@@ -283,7 +348,9 @@ bool DeviceResources::IsReady() const
         m_pDeviceContext != nullptr &&
         m_pSwapChain != nullptr &&
         m_pBackBufferRTV != nullptr &&
-        m_pDepthStencilView != nullptr;
+        m_pDepthStencilView != nullptr &&
+        m_pColorBufferRTV != nullptr &&
+        m_pColorBufferSRV != nullptr;
 }
 
 ID3D11Device* DeviceResources::GetDevice() const
@@ -294,6 +361,16 @@ ID3D11Device* DeviceResources::GetDevice() const
 ID3D11DeviceContext* DeviceResources::GetContext() const
 {
     return m_pDeviceContext;
+}
+
+ID3D11RenderTargetView* DeviceResources::GetBackBufferRTV() const
+{
+    return m_pBackBufferRTV;
+}
+
+ID3D11ShaderResourceView* DeviceResources::GetColorBufferSRV() const
+{
+    return m_pColorBufferSRV;
 }
 
 UINT DeviceResources::GetWidth() const

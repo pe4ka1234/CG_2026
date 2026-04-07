@@ -24,6 +24,10 @@ private:
     bool CreateStates();
     void ReleaseStates();
 
+    bool CreatePostProcessResources();
+    void ReleasePostProcessResources();
+    void RenderPostProcess();
+
 private:
     float m_ClearColor[4] = { 0.60f, 0.80f, 1.00f, 1.0f };
 
@@ -36,4 +40,8 @@ private:
     ID3D11DepthStencilState* m_pOpaqueDepthState = nullptr;
     ID3D11DepthStencilState* m_pTransparentDepthState = nullptr;
     ID3D11BlendState* m_pTransparentBlendState = nullptr;
+
+    ID3D11VertexShader* m_pSepiaVertexShader = nullptr;
+    ID3D11PixelShader* m_pSepiaPixelShader = nullptr;
+    ID3D11SamplerState* m_pPostProcessSampler = nullptr;
 };
