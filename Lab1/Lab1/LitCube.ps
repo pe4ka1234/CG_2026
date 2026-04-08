@@ -42,7 +42,7 @@ float4 ps(VSOutput pixel) : SV_Target0
         colorSampler,
         float3(pixel.uv, geomBuffer[idx].shineSpeedTexIdNM.z)).xyz;
 
-    uint flags = (uint)geomBuffer[idx].shineSpeedTexIdNM.w;
+    uint flags = asuint(geomBuffer[idx].shineSpeedTexIdNM.w);
 
     float3 normal = normalize(pixel.norm);
 

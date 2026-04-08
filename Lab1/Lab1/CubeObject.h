@@ -15,7 +15,8 @@ public:
         ID3D11Buffer* pSceneBuffer,
         ID3D11Buffer* pGeomBufferInst,
         ID3D11Buffer* pGeomBufferInstVis,
-        UINT instanceCount);
+        UINT instanceCount,
+        ID3D11Buffer* pIndirectArgs = nullptr);
 
 private:
     struct Geometry

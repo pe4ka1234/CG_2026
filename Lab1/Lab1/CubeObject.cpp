@@ -388,9 +388,13 @@ void CubeObject::Render(
     ID3D11Buffer* pSceneBuffer,
     ID3D11Buffer* pGeomBufferInst,
     ID3D11Buffer* pGeomBufferInstVis,
-    UINT instanceCount)
+    UINT instanceCount,
+    ID3D11Buffer* pIndirectArgs)
 {
-    if (!IsReady() || instanceCount == 0)
+    if (!IsReady())
+        return;
+
+    if (instanceCount == 0 && pIndirectArgs == nullptr)
         return;
 
     pDeviceContext->IASetIndexBuffer(m_Geometry.pIndexBuffer, DXGI_FORMAT_R16_UINT, 0);
@@ -433,7 +437,11 @@ void CubeObject::Render(
     pDeviceContext->PSSetShaderResources(0, 2, resources);
 
     pDeviceContext->RSSetState(nullptr);
-    pDeviceContext->DrawIndexedInstanced(m_Geometry.indexCount, instanceCount, 0, 0, 0);
+
+    if (pIndirectArgs != nullptr)
+        pDeviceContext->DrawIndexedInstancedIndirect(pIndirectArgs, 0);
+    else
+        pDeviceContext->DrawIndexedInstanced(m_Geometry.indexCount, instanceCount, 0, 0, 0);
 }
 
 void CubeObject::Shutdown()

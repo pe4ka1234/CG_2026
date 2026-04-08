@@ -4,7 +4,6 @@
 #include "ShaderUtils.h"
 
 #include <algorithm>
-#include <array>
 #include <assert.h>
 #include <cmath>
 #include <cstring>
@@ -64,7 +63,10 @@ bool SceneResources::Init(ID3D11Device* pDevice)
     return CreateGeomBuffer(pDevice) &&
         CreateGeomBufferInst(pDevice) &&
         CreateGeomBufferInstVis(pDevice) &&
-        CreateSceneBuffer(pDevice);
+        CreateSceneBuffer(pDevice) &&
+        CreateCullParams(pDevice) &&
+        CreateIndirectArgs(pDevice) &&
+        CreateGeomBufferInstVisGPU(pDevice);
 }
 
 bool SceneResources::CreateGeomBuffer(ID3D11Device* pDevice)
@@ -133,6 +135,89 @@ bool SceneResources::CreateSceneBuffer(ID3D11Device* pDevice)
         return false;
 
     SetResourceName(m_pSceneBuffer, "SceneBuffer");
+    return true;
+}
+
+bool SceneResources::CreateCullParams(ID3D11Device* pDevice)
+{
+    D3D11_BUFFER_DESC desc{};
+    desc.ByteWidth = sizeof(CullParams);
+    desc.Usage = D3D11_USAGE_DEFAULT;
+    desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+    desc.CPUAccessFlags = 0;
+    desc.MiscFlags = 0;
+    desc.StructureByteStride = 0;
+
+    const HRESULT hr = pDevice->CreateBuffer(&desc, nullptr, &m_pCullParams);
+    if (FAILED(hr) || !m_pCullParams)
+        return false;
+
+    SetResourceName(m_pCullParams, "CullParams");
+    return true;
+}
+
+bool SceneResources::CreateIndirectArgs(ID3D11Device* pDevice)
+{
+    {
+        D3D11_BUFFER_DESC desc{};
+        desc.ByteWidth = sizeof(D3D11_DRAW_INDEXED_INSTANCED_INDIRECT_ARGS);
+        desc.Usage = D3D11_USAGE_DEFAULT;
+        desc.BindFlags = D3D11_BIND_UNORDERED_ACCESS;
+        desc.CPUAccessFlags = 0;
+        desc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+        desc.StructureByteStride = sizeof(UINT);
+
+        HRESULT hr = pDevice->CreateBuffer(&desc, nullptr, &m_pIndirectArgsSrc);
+        if (FAILED(hr) || !m_pIndirectArgsSrc)
+            return false;
+
+        hr = pDevice->CreateUnorderedAccessView(m_pIndirectArgsSrc, nullptr, &m_pIndirectArgsUAV);
+        if (FAILED(hr) || !m_pIndirectArgsUAV)
+            return false;
+
+        SetResourceName(m_pIndirectArgsSrc, "IndirectArgsSrc");
+        SetResourceName(m_pIndirectArgsUAV, "IndirectArgsUAV");
+    }
+
+    {
+        D3D11_BUFFER_DESC desc{};
+        desc.ByteWidth = sizeof(D3D11_DRAW_INDEXED_INSTANCED_INDIRECT_ARGS);
+        desc.Usage = D3D11_USAGE_DEFAULT;
+        desc.BindFlags = 0;
+        desc.CPUAccessFlags = 0;
+        desc.MiscFlags = D3D11_RESOURCE_MISC_DRAWINDIRECT_ARGS;
+        desc.StructureByteStride = 0;
+
+        const HRESULT hr = pDevice->CreateBuffer(&desc, nullptr, &m_pIndirectArgs);
+        if (FAILED(hr) || !m_pIndirectArgs)
+            return false;
+
+        SetResourceName(m_pIndirectArgs, "IndirectArgs");
+    }
+
+    return true;
+}
+
+bool SceneResources::CreateGeomBufferInstVisGPU(ID3D11Device* pDevice)
+{
+    D3D11_BUFFER_DESC desc{};
+    desc.ByteWidth = sizeof(GeomBufferInstVis);
+    desc.Usage = D3D11_USAGE_DEFAULT;
+    desc.BindFlags = D3D11_BIND_UNORDERED_ACCESS;
+    desc.CPUAccessFlags = 0;
+    desc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+    desc.StructureByteStride = sizeof(DirectX::XMUINT4);
+
+    HRESULT hr = pDevice->CreateBuffer(&desc, nullptr, &m_pGeomBufferInstVisGPU);
+    if (FAILED(hr) || !m_pGeomBufferInstVisGPU)
+        return false;
+
+    hr = pDevice->CreateUnorderedAccessView(m_pGeomBufferInstVisGPU, nullptr, &m_pGeomBufferInstVisGPU_UAV);
+    if (FAILED(hr) || !m_pGeomBufferInstVisGPU_UAV)
+        return false;
+
+    SetResourceName(m_pGeomBufferInstVisGPU, "GeomBufferInstVisGPU");
+    SetResourceName(m_pGeomBufferInstVisGPU_UAV, "GeomBufferInstVisGPU_UAV");
     return true;
 }
 
@@ -239,9 +324,14 @@ bool SceneResources::UpdateSceneBuffer(ID3D11DeviceContext* pDeviceContext, UINT
         1.0f);
 
     sceneBuffer.lightCount.x = 2;
-    sceneBuffer.lightCount.y = 1; 
+    sceneBuffer.lightCount.y = 1;
     sceneBuffer.lightCount.z = 0;
-    sceneBuffer.lightCount.w = 0;
+    sceneBuffer.lightCount.w = 1;
+
+    sceneBuffer.postProcess.x = 1;
+    sceneBuffer.postProcess.y = 0;
+    sceneBuffer.postProcess.z = 0;
+    sceneBuffer.postProcess.w = 0;
 
     sceneBuffer.ambientColor = DirectX::XMFLOAT4(0.20f, 0.20f, 0.22f, 0.0f);
 
@@ -250,6 +340,9 @@ bool SceneResources::UpdateSceneBuffer(ID3D11DeviceContext* pDeviceContext, UINT
 
     sceneBuffer.lights[1].pos = DirectX::XMFLOAT4(-1.10f, 0.95f, -0.35f, 1.0f);
     sceneBuffer.lights[1].color = DirectX::XMFLOAT4(0.46f, 0.62f, 1.18f, 0.0f);
+
+    for (int i = 0; i < 6; ++i)
+        sceneBuffer.frustum[i] = m_Frustum[i];
 
     std::memcpy(subresource.pData, &sceneBuffer, sizeof(sceneBuffer));
     pDeviceContext->Unmap(m_pSceneBuffer, 0);
@@ -312,15 +405,48 @@ void SceneResources::UpdateGeomBufferInst(
     pDeviceContext->UpdateSubresource(m_pGeomBufferInst, 0, nullptr, &geomBufferInst, 0, 0);
 
     GeomBufferInstVis geomBufferInstVis{};
-    for (UINT i = 0; i < visibleCount; ++i)
+    if (pVisibleIds)
     {
-        geomBufferInstVis.ids[i].x = pVisibleIds[i];
-        geomBufferInstVis.ids[i].y = 0;
-        geomBufferInstVis.ids[i].z = 0;
-        geomBufferInstVis.ids[i].w = 0;
+        for (UINT i = 0; i < visibleCount; ++i)
+        {
+            geomBufferInstVis.ids[i].x = pVisibleIds[i];
+            geomBufferInstVis.ids[i].y = 0;
+            geomBufferInstVis.ids[i].z = 0;
+            geomBufferInstVis.ids[i].w = 0;
+        }
     }
 
     pDeviceContext->UpdateSubresource(m_pGeomBufferInstVis, 0, nullptr, &geomBufferInstVis, 0, 0);
+}
+
+void SceneResources::UpdateCullParams(
+    ID3D11DeviceContext* pDeviceContext,
+    const DirectX::XMFLOAT4* pBBMin,
+    const DirectX::XMFLOAT4* pBBMax,
+    UINT shapeCount)
+{
+    if (!m_pCullParams || !pDeviceContext)
+        return;
+
+    if (shapeCount > MaxInst)
+        shapeCount = MaxInst;
+
+    CullParams cullParams{};
+    cullParams.numShapes.x = shapeCount;
+    cullParams.numShapes.y = 0;
+    cullParams.numShapes.z = 0;
+    cullParams.numShapes.w = 0;
+
+    if (pBBMin && pBBMax)
+    {
+        for (UINT i = 0; i < shapeCount; ++i)
+        {
+            cullParams.bbMin[i] = pBBMin[i];
+            cullParams.bbMax[i] = pBBMax[i];
+        }
+    }
+
+    pDeviceContext->UpdateSubresource(m_pCullParams, 0, nullptr, &cullParams, 0, 0);
 }
 
 ID3D11Buffer* SceneResources::GetSceneBuffer() const
@@ -343,6 +469,36 @@ ID3D11Buffer* SceneResources::GetGeomBufferInstVis() const
     return m_pGeomBufferInstVis;
 }
 
+ID3D11Buffer* SceneResources::GetCullParams() const
+{
+    return m_pCullParams;
+}
+
+ID3D11Buffer* SceneResources::GetIndirectArgsSrc() const
+{
+    return m_pIndirectArgsSrc;
+}
+
+ID3D11UnorderedAccessView* SceneResources::GetIndirectArgsUAV() const
+{
+    return m_pIndirectArgsUAV;
+}
+
+ID3D11Buffer* SceneResources::GetIndirectArgs() const
+{
+    return m_pIndirectArgs;
+}
+
+ID3D11Buffer* SceneResources::GetGeomBufferInstVisGPU() const
+{
+    return m_pGeomBufferInstVisGPU;
+}
+
+ID3D11UnorderedAccessView* SceneResources::GetGeomBufferInstVisGPU_UAV() const
+{
+    return m_pGeomBufferInstVisGPU_UAV;
+}
+
 float SceneResources::GetSkyRadius() const
 {
     return m_SkyRadius;
@@ -360,6 +516,14 @@ const DirectX::XMFLOAT4* SceneResources::GetFrustum() const
 
 void SceneResources::Shutdown()
 {
+    SAFE_RELEASE(m_pGeomBufferInstVisGPU_UAV);
+    SAFE_RELEASE(m_pGeomBufferInstVisGPU);
+
+    SAFE_RELEASE(m_pIndirectArgs);
+    SAFE_RELEASE(m_pIndirectArgsUAV);
+    SAFE_RELEASE(m_pIndirectArgsSrc);
+
+    SAFE_RELEASE(m_pCullParams);
     SAFE_RELEASE(m_pSceneBuffer);
     SAFE_RELEASE(m_pGeomBufferInstVis);
     SAFE_RELEASE(m_pGeomBufferInst);
