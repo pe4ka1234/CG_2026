@@ -63,6 +63,9 @@
     <ClInclude Include="TransparentQuadObject.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
+    <ClInclude Include="SceneCB.hlsli">
+      <Filter>Исходные файлы</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Lab1.cpp">
@@ -141,6 +144,9 @@
       <Filter>Исходные файлы</Filter>
     </None>
     <None Include="Sepia.ps">
+      <Filter>Исходные файлы</Filter>
+    </None>
+    <None Include="Cull.cs">
       <Filter>Исходные файлы</Filter>
     </None>
   </ItemGroup>

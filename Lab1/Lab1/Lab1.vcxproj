@@ -126,7 +126,9 @@ copy /Y "$(ProjectDir)negx.dds" "$(OutDir)"
 copy /Y "$(ProjectDir)posy.dds" "$(OutDir)"
 copy /Y "$(ProjectDir)negy.dds" "$(OutDir)"
 copy /Y "$(ProjectDir)posz.dds" "$(OutDir)"
-copy /Y "$(ProjectDir)negz.dds" "$(OutDir)"</Command>
+copy /Y "$(ProjectDir)negz.dds" "$(OutDir)"
+copy /Y "$(ProjectDir)SceneCB.hlsli" "$(OutDir)"
+copy /Y "$(ProjectDir)Cull.cs" "$(OutDir)"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -161,7 +163,9 @@ copy /Y "$(ProjectDir)negx.dds" "$(OutDir)"
 copy /Y "$(ProjectDir)posy.dds" "$(OutDir)"
 copy /Y "$(ProjectDir)negy.dds" "$(OutDir)"
 copy /Y "$(ProjectDir)posz.dds" "$(OutDir)"
-copy /Y "$(ProjectDir)negz.dds" "$(OutDir)"</Command>
+copy /Y "$(ProjectDir)negz.dds" "$(OutDir)"
+copy /Y "$(ProjectDir)SceneCB.hlsli" "$(OutDir)"
+copy /Y "$(ProjectDir)Cull.cs" "$(OutDir)"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -176,6 +180,7 @@ copy /Y "$(ProjectDir)negz.dds" "$(OutDir)"</Command>
     <ClInclude Include="MeshUtils.h" />
     <ClInclude Include="RenderTypes.h" />
     <ClInclude Include="Resource.h" />
+    <ClInclude Include="SceneCB.hlsli" />
     <ClInclude Include="SceneResources.h" />
     <ClInclude Include="ShaderUtils.h" />
     <ClInclude Include="SkyboxObject.h" />
@@ -203,6 +208,7 @@ copy /Y "$(ProjectDir)negz.dds" "$(OutDir)"</Command>
     <Image Include="small.ico" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="Cull.cs" />
     <None Include="LightingCommon.hlsli" />
     <None Include="LitCube.ps" />
     <None Include="LitCube.vs" />

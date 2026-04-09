@@ -7,6 +7,7 @@
 #include <array>
 #include <cmath>
 #include <cfloat>
+#include <string>
 #include <vector>
 
 namespace
@@ -124,6 +125,12 @@ namespace
 
 bool DxRenderer::Init(HWND hWnd, UINT width, UINT height)
 {
+    m_hWnd = hWnd;
+
+    WCHAR title[256] = {};
+    if (GetWindowTextW(hWnd, title, 256) > 0)
+        m_BaseWindowTitle = title;
+
     if (!m_DeviceResources.Init(hWnd, width, height))
         return false;
 
@@ -158,6 +165,18 @@ bool DxRenderer::Init(HWND hWnd, UINT width, UINT height)
     }
 
     if (!CreatePostProcessResources())
+    {
+        Shutdown();
+        return false;
+    }
+
+    if (!CreateComputeResources())
+    {
+        Shutdown();
+        return false;
+    }
+
+    if (!CreateQueries())
     {
         Shutdown();
         return false;
@@ -306,8 +325,106 @@ void DxRenderer::ReleasePostProcessResources()
     SAFE_RELEASE(m_pSepiaVertexShader);
 }
 
+bool DxRenderer::CreateComputeResources()
+{
+    ID3D11Device* pDevice = m_DeviceResources.GetDevice();
+    if (!pDevice)
+        return false;
+
+    ID3DBlob* pCSCode = nullptr;
+    HRESULT hr = CompileShaderFromFileMemory(L"Cull.cs", "cs", "cs_5_0", &pCSCode);
+    if (FAILED(hr) || !pCSCode)
+        return false;
+
+    hr = pDevice->CreateComputeShader(
+        pCSCode->GetBufferPointer(),
+        pCSCode->GetBufferSize(),
+        nullptr,
+        &m_pCullShader);
+
+    SAFE_RELEASE(pCSCode);
+
+    if (FAILED(hr) || !m_pCullShader)
+        return false;
+
+    SetResourceName(m_pCullShader, "Cull.cs");
+    return true;
+}
+
+void DxRenderer::ReleaseComputeResources()
+{
+    SAFE_RELEASE(m_pCullShader);
+}
+
+bool DxRenderer::CreateQueries()
+{
+    ID3D11Device* pDevice = m_DeviceResources.GetDevice();
+    if (!pDevice)
+        return false;
+
+    D3D11_QUERY_DESC desc{};
+    desc.Query = D3D11_QUERY_PIPELINE_STATISTICS;
+    desc.MiscFlags = 0;
+
+    HRESULT result = S_OK;
+    for (int i = 0; i < 10 && SUCCEEDED(result); ++i)
+        result = pDevice->CreateQuery(&desc, &m_queries[i]);
+
+    return SUCCEEDED(result);
+}
+
+void DxRenderer::ReleaseQueries()
+{
+    for (int i = 0; i < 10; ++i)
+        SAFE_RELEASE(m_queries[i]);
+}
+
+void DxRenderer::ReadQueries()
+{
+    if (!m_computeCull)
+        return;
+
+    ID3D11DeviceContext* pDeviceContext = m_DeviceResources.GetContext();
+    if (!pDeviceContext)
+        return;
+
+    D3D11_QUERY_DATA_PIPELINE_STATISTICS stats{};
+    while (m_lastCompletedFrame < m_curFrame)
+    {
+        HRESULT result = pDeviceContext->GetData(
+            m_queries[m_lastCompletedFrame % 10],
+            &stats,
+            sizeof(D3D11_QUERY_DATA_PIPELINE_STATISTICS),
+            0);
+
+        if (result == S_OK)
+        {
+            m_gpuVisibleInstances = static_cast<int>(stats.IAPrimitives / 12);
+            ++m_lastCompletedFrame;
+        }
+        else
+        {
+            break;
+        }
+    }
+}
+
+void DxRenderer::UpdateWindowTitle(int visibleInstances)
+{
+    if (!m_hWnd)
+        return;
+
+    std::wstring title = m_BaseWindowTitle;
+    title += L" | Отрисовано экземпляров: ";
+    title += std::to_wstring(visibleInstances);
+
+    SetWindowTextW(m_hWnd, title.c_str());
+}
+
 void DxRenderer::Shutdown()
 {
+    ReleaseQueries();
+    ReleaseComputeResources();
     ReleasePostProcessResources();
     ReleaseStates();
 
@@ -394,14 +511,18 @@ void DxRenderer::Render()
         { DirectX::XMFLOAT3(0.00f, 0.00f, -6.00f), 1.00f, -0.35f, 48.0f, 1.0f, 0.0f }
     };
 
+    const UINT opaqueCount = (std::min)(
+        static_cast<UINT>(sizeof(OpaqueInstances) / sizeof(OpaqueInstances[0])),
+        MaxInst);
 
     std::array<GeomBufferInstData, MaxInst> geomBufferInstData{};
+    std::array<DirectX::XMFLOAT4, MaxInst> bbMin4{};
+    std::array<DirectX::XMFLOAT4, MaxInst> bbMax4{};
     std::vector<UINT> visibleIds;
     visibleIds.reserve(MaxInst);
 
     const DirectX::XMFLOAT4* frustum = m_SceneResources.GetFrustum();
 
-    const UINT opaqueCount = static_cast<UINT>(sizeof(OpaqueInstances) / sizeof(OpaqueInstances[0]));
     for (UINT i = 0; i < opaqueCount; ++i)
     {
         const OpaqueInstanceDesc& inst = OpaqueInstances[i];
@@ -422,7 +543,7 @@ void DxRenderer::Render()
             inst.shininess,
             0.0f,
             inst.textureId,
-            inst.hasNormalMap);;
+            inst.hasNormalMap);
 
         geomBufferInstData[i].posAngle = DirectX::XMFLOAT4(
             inst.position.x,
@@ -433,6 +554,9 @@ void DxRenderer::Render()
         DirectX::XMFLOAT3 bbMin;
         DirectX::XMFLOAT3 bbMax;
         BuildWorldAABB(model, bbMin, bbMax);
+
+        bbMin4[i] = DirectX::XMFLOAT4(bbMin.x, bbMin.y, bbMin.z, 0.0f);
+        bbMax4[i] = DirectX::XMFLOAT4(bbMax.x, bbMax.y, bbMax.z, 0.0f);
 
         if (IsBoxInside(frustum, bbMin, bbMax))
             visibleIds.push_back(i);
@@ -445,15 +569,94 @@ void DxRenderer::Render()
         visibleIds.empty() ? nullptr : visibleIds.data(),
         static_cast<UINT>(visibleIds.size()));
 
+    m_SceneResources.UpdateCullParams(
+        pDeviceContext,
+        bbMin4.data(),
+        bbMax4.data(),
+        opaqueCount);
+
+    if (m_computeCull)
+    {
+        D3D11_DRAW_INDEXED_INSTANCED_INDIRECT_ARGS args{};
+        args.IndexCountPerInstance = 36;
+        args.InstanceCount = 0;
+        args.StartIndexLocation = 0;
+        args.BaseVertexLocation = 0;
+        args.StartInstanceLocation = 0;
+
+        pDeviceContext->UpdateSubresource(
+            m_SceneResources.GetIndirectArgsSrc(),
+            0,
+            nullptr,
+            &args,
+            0,
+            0);
+
+        const UINT groupNumber = (opaqueCount + 63u) / 64u;
+
+        ID3D11Buffer* constBuffers[2] =
+        {
+            m_SceneResources.GetSceneBuffer(),
+            m_SceneResources.GetCullParams()
+        };
+        pDeviceContext->CSSetConstantBuffers(0, 2, constBuffers);
+
+        ID3D11UnorderedAccessView* uavBuffers[2] =
+        {
+            m_SceneResources.GetIndirectArgsUAV(),
+            m_SceneResources.GetGeomBufferInstVisGPU_UAV()
+        };
+        pDeviceContext->CSSetUnorderedAccessViews(0, 2, uavBuffers, nullptr);
+
+        pDeviceContext->CSSetShader(m_pCullShader, nullptr, 0);
+        pDeviceContext->Dispatch(groupNumber, 1, 1);
+
+        pDeviceContext->CopyResource(
+            m_SceneResources.GetGeomBufferInstVis(),
+            m_SceneResources.GetGeomBufferInstVisGPU());
+
+        pDeviceContext->CopyResource(
+            m_SceneResources.GetIndirectArgs(),
+            m_SceneResources.GetIndirectArgsSrc());
+
+        ID3D11UnorderedAccessView* nullUAVs[2] = { nullptr, nullptr };
+        pDeviceContext->CSSetUnorderedAccessViews(0, 2, nullUAVs, nullptr);
+
+        ID3D11Buffer* nullCBs[2] = { nullptr, nullptr };
+        pDeviceContext->CSSetConstantBuffers(0, 2, nullCBs);
+
+        pDeviceContext->CSSetShader(nullptr, nullptr, 0);
+    }
+
     pDeviceContext->OMSetBlendState(nullptr, nullptr, 0xFFFFFFFF);
     pDeviceContext->OMSetDepthStencilState(m_pOpaqueDepthState, 0);
 
-    m_CubeObject.Render(
-        pDeviceContext,
-        m_SceneResources.GetSceneBuffer(),
-        m_SceneResources.GetGeomBufferInst(),
-        m_SceneResources.GetGeomBufferInstVis(),
-        static_cast<UINT>(visibleIds.size()));
+    if (m_computeCull)
+    {
+        pDeviceContext->Begin(m_queries[m_curFrame % 10]);
+
+        m_CubeObject.Render(
+            pDeviceContext,
+            m_SceneResources.GetSceneBuffer(),
+            m_SceneResources.GetGeomBufferInst(),
+            m_SceneResources.GetGeomBufferInstVis(),
+            0,
+            m_SceneResources.GetIndirectArgs());
+
+        pDeviceContext->End(m_queries[m_curFrame % 10]);
+        ++m_curFrame;
+    }
+    else
+    {
+        m_CubeObject.Render(
+            pDeviceContext,
+            m_SceneResources.GetSceneBuffer(),
+            m_SceneResources.GetGeomBufferInst(),
+            m_SceneResources.GetGeomBufferInstVis(),
+            static_cast<UINT>(visibleIds.size()));
+    }
+
+    ReadQueries();
 
     m_SceneResources.UpdateGeomBuffer(
         pDeviceContext,
@@ -516,6 +719,8 @@ void DxRenderer::Render()
     pDeviceContext->OMSetBlendState(nullptr, nullptr, 0xFFFFFFFF);
     pDeviceContext->OMSetDepthStencilState(nullptr, 0);
     pDeviceContext->PSSetShaderResources(0, 2, nullCubeResources);
+
+    UpdateWindowTitle(m_computeCull ? m_gpuVisibleInstances : static_cast<int>(visibleIds.size()));
 
     RenderPostProcess();
     m_DeviceResources.Present();

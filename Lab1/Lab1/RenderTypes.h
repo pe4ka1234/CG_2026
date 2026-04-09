@@ -42,8 +42,8 @@ struct GeomBufferInstData
 {
     DirectX::XMFLOAT4X4 model;
     DirectX::XMFLOAT4X4 norm;
-    DirectX::XMFLOAT4 shineSpeedTexIdNM; 
-    DirectX::XMFLOAT4 posAngle;          
+    DirectX::XMFLOAT4 shineSpeedTexIdNM;
+    DirectX::XMFLOAT4 posAngle;
 };
 
 struct GeomBufferInst
@@ -56,11 +56,20 @@ struct GeomBufferInstVis
     DirectX::XMUINT4 ids[MaxInst];
 };
 
+struct CullParams
+{
+    DirectX::XMUINT4 numShapes;
+    DirectX::XMFLOAT4 bbMin[MaxInst];
+    DirectX::XMFLOAT4 bbMax[MaxInst];
+};
+
 struct SceneBuffer
 {
     DirectX::XMFLOAT4X4 vp;
     DirectX::XMFLOAT4 cameraPos;
     DirectX::XMINT4 lightCount;
+    DirectX::XMINT4 postProcess;
     Light lights[10];
     DirectX::XMFLOAT4 ambientColor;
+    DirectX::XMFLOAT4 frustum[6];
 };
